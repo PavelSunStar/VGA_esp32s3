@@ -26,30 +26,6 @@
 #define VGA_PIN_NUM_DATA14         13
 #define VGA_PIN_NUM_DATA15         21
 
-/*
-//R
-#define VGA_PIN_NUM_DATA0          4
-#define VGA_PIN_NUM_DATA1          5
-#define VGA_PIN_NUM_DATA2          6
-#define VGA_PIN_NUM_DATA3          7
-#define VGA_PIN_NUM_DATA4          15
-
-//G
-#define VGA_PIN_NUM_DATA5          9
-#define VGA_PIN_NUM_DATA6          10
-#define VGA_PIN_NUM_DATA7          11
-#define VGA_PIN_NUM_DATA8          12
-#define VGA_PIN_NUM_DATA9          13
-#define VGA_PIN_NUM_DATA10         14
-
-//B
-#define VGA_PIN_NUM_DATA11         16
-#define VGA_PIN_NUM_DATA12         17
-#define VGA_PIN_NUM_DATA13         18
-#define VGA_PIN_NUM_DATA14         8
-#define VGA_PIN_NUM_DATA15         3
-*/
-
 //Other
 #define VGA_PIN_NUM_DISP_EN     -1
 #define VGA_PIN_NUM_PCLK        -1
@@ -91,7 +67,6 @@ class VGA_esp32s3{
 		uint16_t* _buf16 = nullptr; 
         int* _fastY = nullptr;
         int _frontBuff, _backBuff;
-        bool _swap = false;
         bool _swapRequest = false;
 
         VGA_esp32s3();         // Конструктор 
@@ -169,46 +144,5 @@ class VGA_esp32s3{
 
         bool setPanelConfig();
         void regCallbackSemaphore();  
-
-    protected:
-
 };    
 
-//uint8_t *buffer = dmaBuffer->getBuffer8(backBuffer);
-//r = min((rand() & 31) + r, 255);
-//g = min((rand() & 31) + g, 255);
-//b = min((rand() & 63) + b, 255);
-//buffer[mode->hRes * v + h] = (r >> 5) | ((g >> 5) << 3) | ((b >>))
-
-/*
-    // Настройка пинов для 8-битного или 16-битного режима
-    if (_bpp == 16) {
-        // 16-битный режим (RGB565)
-        panel_config.data_gpio_nums[0]  = VGA_PIN_NUM_DATA15; // B
-        panel_config.data_gpio_nums[1]  = VGA_PIN_NUM_DATA14;
-        panel_config.data_gpio_nums[2]  = VGA_PIN_NUM_DATA13;
-        panel_config.data_gpio_nums[3]  = VGA_PIN_NUM_DATA12;
-        panel_config.data_gpio_nums[4]  = VGA_PIN_NUM_DATA11;
-        panel_config.data_gpio_nums[5]  = VGA_PIN_NUM_DATA10; // G
-        panel_config.data_gpio_nums[6]  = VGA_PIN_NUM_DATA9;
-        panel_config.data_gpio_nums[7]  = VGA_PIN_NUM_DATA8;
-        panel_config.data_gpio_nums[8]  = VGA_PIN_NUM_DATA7;
-        panel_config.data_gpio_nums[9]  = VGA_PIN_NUM_DATA6;
-        panel_config.data_gpio_nums[10] = VGA_PIN_NUM_DATA5;
-        panel_config.data_gpio_nums[11] = VGA_PIN_NUM_DATA4;  // R
-        panel_config.data_gpio_nums[12] = VGA_PIN_NUM_DATA3;
-        panel_config.data_gpio_nums[13] = VGA_PIN_NUM_DATA2;
-        panel_config.data_gpio_nums[14] = VGA_PIN_NUM_DATA1;
-        panel_config.data_gpio_nums[15] = VGA_PIN_NUM_DATA0;
-    } else {
-        // 8-битный режим
-        panel_config.data_gpio_nums[0] = VGA_PIN_NUM_DATA12; // B
-        panel_config.data_gpio_nums[1] = VGA_PIN_NUM_DATA11;
-        panel_config.data_gpio_nums[2] = VGA_PIN_NUM_DATA7;  // G
-        panel_config.data_gpio_nums[3] = VGA_PIN_NUM_DATA6;
-        panel_config.data_gpio_nums[4] = VGA_PIN_NUM_DATA5;
-        panel_config.data_gpio_nums[5] = VGA_PIN_NUM_DATA2;  // R
-        panel_config.data_gpio_nums[6] = VGA_PIN_NUM_DATA1;
-        panel_config.data_gpio_nums[7] = VGA_PIN_NUM_DATA0;
-    }
-*/

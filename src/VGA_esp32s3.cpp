@@ -35,11 +35,9 @@ void VGA_esp32s3::regCallbackSemaphore() {
     if (_dBuff){
         _sem_vsync_end = xSemaphoreCreateBinary();
         assert(_sem_vsync_end);
-        xSemaphoreGive(_sem_vsync_end); // Инициализируем в свободное состояние
 
         _sem_gui_ready = xSemaphoreCreateBinary();
         assert(_sem_gui_ready);
-        xSemaphoreGive(_sem_gui_ready); // Инициализируем в свободное состояние
     }
 }
 
@@ -292,7 +290,7 @@ bool IRAM_ATTR VGA_esp32s3::on_color_trans_done(esp_lcd_panel_handle_t panel, co
 
 bool IRAM_ATTR VGA_esp32s3::on_vsync(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx)
 {
-    return false;
+    return true;
 }
 
 bool IRAM_ATTR VGA_esp32s3::on_bounce_frame_finish(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx) {    
