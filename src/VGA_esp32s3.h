@@ -1,0 +1,214 @@
+#pragma once
+
+#include "esp_async_memcpy.h"
+#include <esp_LCD_panel_rgb.h>
+
+//VGA connect pins ----------------------------------------------------------------------------------------------------
+//R
+#define VGA_PIN_NUM_DATA0          4
+#define VGA_PIN_NUM_DATA1          5
+#define VGA_PIN_NUM_DATA2          6
+#define VGA_PIN_NUM_DATA3          7
+#define VGA_PIN_NUM_DATA4          15
+
+//G
+#define VGA_PIN_NUM_DATA5          16
+#define VGA_PIN_NUM_DATA6          17
+#define VGA_PIN_NUM_DATA7          18
+#define VGA_PIN_NUM_DATA8          8
+#define VGA_PIN_NUM_DATA9          9
+#define VGA_PIN_NUM_DATA10         14
+
+//B
+#define VGA_PIN_NUM_DATA11         10
+#define VGA_PIN_NUM_DATA12         11
+#define VGA_PIN_NUM_DATA13         12
+#define VGA_PIN_NUM_DATA14         13
+#define VGA_PIN_NUM_DATA15         21
+
+/*
+//R
+#define VGA_PIN_NUM_DATA0          4
+#define VGA_PIN_NUM_DATA1          5
+#define VGA_PIN_NUM_DATA2          6
+#define VGA_PIN_NUM_DATA3          7
+#define VGA_PIN_NUM_DATA4          15
+
+//G
+#define VGA_PIN_NUM_DATA5          9
+#define VGA_PIN_NUM_DATA6          10
+#define VGA_PIN_NUM_DATA7          11
+#define VGA_PIN_NUM_DATA8          12
+#define VGA_PIN_NUM_DATA9          13
+#define VGA_PIN_NUM_DATA10         14
+
+//B
+#define VGA_PIN_NUM_DATA11         16
+#define VGA_PIN_NUM_DATA12         17
+#define VGA_PIN_NUM_DATA13         18
+#define VGA_PIN_NUM_DATA14         8
+#define VGA_PIN_NUM_DATA15         3
+*/
+
+//Other
+#define VGA_PIN_NUM_DISP_EN     -1
+#define VGA_PIN_NUM_PCLK        -1
+#define VGA_PIN_NUM_DE          -1
+#define VGA_PIN_NUM_VSYNC       2
+#define VGA_PIN_NUM_HSYNC       1
+
+class VGA_esp32s3{
+    public:
+        //Pixel clock, hRes, VRes, ColBit, BPP
+        //H front porch, H pulse width, H back porch, 
+        //V front porch, V pulse width, V back porch, 
+        //Scale, _bounce_buffer_size_px
+
+        //Mode ok
+        static constexpr int MODE512x384x8[] = {20'000'000, 512, 384, 8, 8, 8, 62, 42, 1, 5, 26, 16384};//+++
+        static constexpr int MODE640x350x8[] = {25'000'000, 640, 350, 8, 8, 16, 96, 48, 37, 2, 60, 16000};//+--
+        static constexpr int MODE640x400x8[] = {25'000'000, 640, 400, 8, 8, 16, 96, 48, 12, 2, 35, 25600};//+++
+        static constexpr int MODE640x480x8[] = {25'000'000, 640, 480, 8, 8, 16, 96, 48, 10, 2, 33, 15360};//+++
+        static constexpr int MODE720x400x8[] = {30'000'000, 720, 400, 8, 8, 36, 72, 108, 1, 3, 42, 14400};//+++
+        static constexpr int MODE768x576x8[] = {30'000'000, 768, 576, 8, 8, 24, 80, 104, 1, 3, 17, 18432};//+++
+        static constexpr int MODE800x600x8[] = {40'000'000, 800, 600, 8, 8, 40, 128, 88, 1, 4, 23, 16000};//+++
+        static constexpr int MODE1024x768x8[] = {65'000'000, 1024, 768, 8, 8, 8, 176, 56, 0, 8, 41, 49152};//-++   
+
+        static constexpr int MODE512x384x16[] = {20'000'000, 512, 384, 16, 16, 8, 62, 42, 1, 5, 26, 16384};//+++
+        static constexpr int MODE640x350x16[] = {25'000'000, 640, 350, 16, 16, 16, 96, 48, 37, 2, 60, 16000};//+--
+        static constexpr int MODE640x400x16[] = {25'000'000, 640, 400, 16, 16, 16, 96, 48, 12, 2, 35, 25600};//+++
+        static constexpr int MODE640x480x16[] = {25'000'000, 640, 480, 16, 16, 16, 96, 48, 10, 2, 33, 15360};//-++
+        static constexpr int MODE720x400x16[] = {30'000'000, 720, 400, 16, 16, 36, 72, 108, 1, 3, 42, 14400};//+++
+        static constexpr int MODE768x576x16[] = {30'000'000, 768, 576, 16, 16, 24, 80, 104, 1, 3, 17, 18432};//-++
+        static constexpr int MODE800x600x16[] = {40'000'000, 800, 600, 16, 16, 40, 128, 88, 1, 4, 23, 16000};//---
+        static constexpr int MODE1024x768x16[] = {65'000'000, 1024, 768, 16, 16, 8, 176, 56, 0, 8, 41, 49152};//---  
+
+        //               r  r  r  r  r   g   g   g   g  g  g   b   b   b   b   b   h  v
+        //               0  1  2  3  4   5   6   7   8  9  10  11  12  13  14  15  16 17
+        int _pins[18] = {4, 5, 6, 7, 15, 16, 17, 18, 8, 9, 14, 10, 11, 12, 13, 21, 1, 2};
+
+        uint8_t* _buf8 = nullptr;
+		uint16_t* _buf16 = nullptr; 
+        int* _fastY = nullptr;
+        int _frontBuff, _backBuff;
+        bool _swap = false;
+        bool _swapRequest = false;
+
+        VGA_esp32s3();         // Конструктор 
+        ~VGA_esp32s3();        // Деструктор
+
+        int getWidth()      {return _width;};
+        int getHeight()     {return _height;};
+        int getXX()         {return _xx;};
+        int getYY()         {return _yy;};
+        int getColBit()     {return _colBit;};
+        int getSize()       {return _size;};
+
+        int getScrWidth()   {return _scrWidth;};
+        int getScrHeight()  {return _scrHeight;};        
+        int getScrXX()      {return _scrXX;};
+        int getScrYY()      {return _scrYY;};
+        int getBpp()        {return _bpp;};
+        int getScale()      {return _scale;};
+        int getScrSize()    {return _scrSize;};
+        int getMaxCol()     {return 1 <<_bpp;};
+
+        //Viewport
+        int get_vX1()       {return _vX1;};
+        int get_vX2()       {return _vX2;};
+        int get_vY1()       {return _vY1;};
+        int get_vY2()       {return _vY2;};
+        int get_vWidth()    {return _vWidth;};
+        int get_vHeight()   {return _vHeight;};
+        
+        void setPins(uint8_t r0, uint8_t r1, uint8_t r2, uint8_t r3, uint8_t r4, 
+                     uint8_t g0, uint8_t g1, uint8_t g2, uint8_t g3, uint8_t g4, uint8_t g5,
+                     uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4,
+                     uint8_t h_sync = 1, uint8_t v_sync = 2);
+
+        bool init(const int *mode, int scale = 0, bool dBuff = true, bool psRam = true);
+        void printInfo();
+        void setViewport(int x1, int y1, int x2, int y2);
+        void swap();   
+
+   protected:
+        //Параметры режима
+        int _pclk_hz;
+        int _width, _height, _xx, _yy, _size;
+        int _colBit, _bpp;
+        int _hsync_back_porch;
+        int _hsync_front_porch;
+        int _hsync_pulse_width;
+        int _vsync_back_porch;
+        int _vsync_front_porch;
+        int _vsync_pulse_width; 
+        int _scale; 
+        size_t _bounce_buffer_size_px, _lastBounceBufferPos;
+        bool _psRam, _dBuff;
+        int _lines, _tik;
+        int _width2X, _width4X;
+
+        //Screen
+        int _scrWidth, _scrHeight;
+        int _scrSize, _scrXX, _scrYY;
+        
+        //Viewport
+        int _vX1, _vX2;
+        int _vY1, _vY2;
+        int _vWidth, _vHeight;
+
+        esp_lcd_panel_handle_t _panel_handle = NULL;
+        static bool IRAM_ATTR on_bounce_empty           (esp_lcd_panel_handle_t panel, void *bounce_buf, int pos_px, int len_bytes, void *user_ctx);
+        static bool IRAM_ATTR on_color_trans_done       (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
+        static bool IRAM_ATTR on_vsync                  (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
+        static bool IRAM_ATTR on_bounce_frame_finish    (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
+        static bool IRAM_ATTR on_frame_buf_complete     (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
+
+	    SemaphoreHandle_t _sem_vsync_end;
+	    SemaphoreHandle_t _sem_gui_ready;
+
+        bool setPanelConfig();
+        void regCallbackSemaphore();  
+
+    protected:
+
+};    
+
+//uint8_t *buffer = dmaBuffer->getBuffer8(backBuffer);
+//r = min((rand() & 31) + r, 255);
+//g = min((rand() & 31) + g, 255);
+//b = min((rand() & 63) + b, 255);
+//buffer[mode->hRes * v + h] = (r >> 5) | ((g >> 5) << 3) | ((b >>))
+
+/*
+    // Настройка пинов для 8-битного или 16-битного режима
+    if (_bpp == 16) {
+        // 16-битный режим (RGB565)
+        panel_config.data_gpio_nums[0]  = VGA_PIN_NUM_DATA15; // B
+        panel_config.data_gpio_nums[1]  = VGA_PIN_NUM_DATA14;
+        panel_config.data_gpio_nums[2]  = VGA_PIN_NUM_DATA13;
+        panel_config.data_gpio_nums[3]  = VGA_PIN_NUM_DATA12;
+        panel_config.data_gpio_nums[4]  = VGA_PIN_NUM_DATA11;
+        panel_config.data_gpio_nums[5]  = VGA_PIN_NUM_DATA10; // G
+        panel_config.data_gpio_nums[6]  = VGA_PIN_NUM_DATA9;
+        panel_config.data_gpio_nums[7]  = VGA_PIN_NUM_DATA8;
+        panel_config.data_gpio_nums[8]  = VGA_PIN_NUM_DATA7;
+        panel_config.data_gpio_nums[9]  = VGA_PIN_NUM_DATA6;
+        panel_config.data_gpio_nums[10] = VGA_PIN_NUM_DATA5;
+        panel_config.data_gpio_nums[11] = VGA_PIN_NUM_DATA4;  // R
+        panel_config.data_gpio_nums[12] = VGA_PIN_NUM_DATA3;
+        panel_config.data_gpio_nums[13] = VGA_PIN_NUM_DATA2;
+        panel_config.data_gpio_nums[14] = VGA_PIN_NUM_DATA1;
+        panel_config.data_gpio_nums[15] = VGA_PIN_NUM_DATA0;
+    } else {
+        // 8-битный режим
+        panel_config.data_gpio_nums[0] = VGA_PIN_NUM_DATA12; // B
+        panel_config.data_gpio_nums[1] = VGA_PIN_NUM_DATA11;
+        panel_config.data_gpio_nums[2] = VGA_PIN_NUM_DATA7;  // G
+        panel_config.data_gpio_nums[3] = VGA_PIN_NUM_DATA6;
+        panel_config.data_gpio_nums[4] = VGA_PIN_NUM_DATA5;
+        panel_config.data_gpio_nums[5] = VGA_PIN_NUM_DATA2;  // R
+        panel_config.data_gpio_nums[6] = VGA_PIN_NUM_DATA1;
+        panel_config.data_gpio_nums[7] = VGA_PIN_NUM_DATA0;
+    }
+*/
