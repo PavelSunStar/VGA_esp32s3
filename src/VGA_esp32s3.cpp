@@ -123,8 +123,8 @@ bool VGA_esp32s3::setPanelConfig() {
     panel_config.flags.no_fb            = true;
 
     panel_config.timings.flags.pclk_active_neg = true;//+
-    panel_config.timings.flags.hsync_idle_low = true;
-    panel_config.timings.flags.vsync_idle_low = true;
+    panel_config.timings.flags.hsync_idle_low = false;
+    panel_config.timings.flags.vsync_idle_low = false;
 
 
     // Создание RGB-панели
@@ -147,7 +147,8 @@ bool VGA_esp32s3::setPanelConfig() {
     }
 
     // --- Свои буферы ---
-    uint32_t caps = MALLOC_CAP_DMA | (_psRam ? MALLOC_CAP_SPIRAM : MALLOC_CAP_INTERNAL) | MALLOC_CAP_8BIT;
+    //uint32_t caps = MALLOC_CAP_DMA | (_psRam ? MALLOC_CAP_SPIRAM : MALLOC_CAP_INTERNAL) | MALLOC_CAP_8BIT;
+    uint32_t caps = MALLOC_CAP_SPIRAM;
     if (_bpp == 16){
         _buf16 = (uint16_t*)heap_caps_malloc((_dBuff ? _scrSize << 1 : _scrSize) , caps);
         assert(_buf16);
@@ -159,7 +160,7 @@ bool VGA_esp32s3::setPanelConfig() {
     }
     
     regCallbackSemaphore();
-    //esp_VGA_panel_disp_on_off(_panel_handle, true);
+    //esp_lcd_panel_disp_on_off(_panel_handle, true);
 
     printInfo();
     Serial.println("Init...Ok");
@@ -200,7 +201,7 @@ bool IRAM_ATTR VGA_esp32s3::on_bounce_empty(
                     *(dest++) = *sour; *(dest++) = *(sour++); *(dest++) = *sour; *(dest++) = *(sour++); 
                     *(dest++) = *sour; *(dest++) = *(sour++); *(dest++) = *sour; *(dest++) = *(sour++); 
                     *(dest++) = *sour; *(dest++) = *(sour++); *(dest++) = *sour; *(dest++) = *(sour++); 
-                    *(dest++) = *sour; *(dest++) = *(sour++); *(dest++) = *sour; *(dest++) = *(sour++);                     
+                    *(dest++) = *sour; *(dest++) = *(sour++); *(dest++) = *sour; *(dest++) = *(sour++); 
                 }
 
                 memcpy(dest, savePos, vga->_width2X);
@@ -228,7 +229,7 @@ bool IRAM_ATTR VGA_esp32s3::on_bounce_empty(
         }
     } else {
         uint8_t* dest = (uint8_t*)bounce_buf;
-        uint8_t* sour = vga->_buf8;// + vga->_frontBuff;
+        uint8_t* sour = vga->_buf8 + vga->_frontBuff;
 
         if (vga->getScale() == 0){
             sour += pos_px;

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "esp_async_memcpy.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include <esp_LCD_panel_rgb.h>
 
 //VGA connect pins ----------------------------------------------------------------------------------------------------
@@ -44,7 +46,7 @@ class VGA_esp32s3{
         static constexpr int MODE512x384x8[] = {20'000'000, 512, 384, 8, 8, 8, 62, 42, 1, 5, 26, 16384};//+++
         static constexpr int MODE640x350x8[] = {25'000'000, 640, 350, 8, 8, 16, 96, 48, 37, 2, 60, 16000};//+--
         static constexpr int MODE640x400x8[] = {25'000'000, 640, 400, 8, 8, 16, 96, 48, 12, 2, 35, 25600};//+++
-        static constexpr int MODE640x480x8[] = {25'000'000, 640, 480, 8, 8, 16, 96, 48, 10, 2, 33, 15360};//+++
+        static constexpr int MODE640x480x8[] = {25'000'000, 640, 480, 8, 8, 16, 96, 48, 10, 2, 33, 30720};//+++
         static constexpr int MODE720x400x8[] = {30'000'000, 720, 400, 8, 8, 36, 72, 108, 1, 3, 42, 14400};//+++
         static constexpr int MODE768x576x8[] = {30'000'000, 768, 576, 8, 8, 24, 80, 104, 1, 3, 17, 18432};//+++
         static constexpr int MODE800x600x8[] = {40'000'000, 800, 600, 8, 8, 40, 128, 88, 1, 4, 23, 16000};//+++
