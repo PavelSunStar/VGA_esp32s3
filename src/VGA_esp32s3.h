@@ -68,8 +68,8 @@ class VGA_esp32s3{
         uint8_t* _buf8 = nullptr;
 		uint16_t* _buf16 = nullptr; 
         int* _fastY = nullptr;
+        uint8_t* _tmpBuf = nullptr;
         int _frontBuff, _backBuff;
-        bool _swapRequest = false;
 
         VGA_esp32s3();         // Конструктор 
         ~VGA_esp32s3();        // Деструктор
@@ -106,6 +106,18 @@ class VGA_esp32s3{
         bool init(const int *mode, int scale = 0, bool dBuff = true, bool psRam = true);
         void printInfo();
         void setViewport(int x1, int y1, int x2, int y2);
+        
+        //Screen scroll
+        void scrollX(int x);
+        void scrollY(int y);
+        void scrollLeft();
+        void scrollRight();
+        void scrollUp();
+        void scrollDown();
+        void scrollBar(int x1, int y1, int x2, int y2, int sx, int sy);
+
+        //Viewport scroll;
+        
         void swap();   
 
    protected:
@@ -124,6 +136,8 @@ class VGA_esp32s3{
         bool _psRam, _dBuff;
         int _lines, _tik;
         int _width2X, _width4X;
+        int _scrWidth2X, _scrWidth4X;
+        int _tmpBufSize;
 
         //Screen
         int _scrWidth, _scrHeight;
@@ -133,6 +147,7 @@ class VGA_esp32s3{
         int _vX1, _vX2;
         int _vY1, _vY2;
         int _vWidth, _vHeight;
+        int _vXX, _vYY;
 
         esp_lcd_panel_handle_t _panel_handle = NULL;
         static bool IRAM_ATTR on_bounce_empty           (esp_lcd_panel_handle_t panel, void *bounce_buf, int pos_px, int len_bytes, void *user_ctx);

@@ -11,6 +11,7 @@ class VGA_GFX : public VGA_esp32s3 {
         uint16_t getCol(uint8_t r, uint8_t g, uint8_t b);
 
         void cls(uint16_t col);
+        void clsViewport(uint16_t col);
         void putPixel(int x, int y, uint16_t col);
         void hLine(int x1, int y, int x2, uint16_t col);
         void vLine(int x, int y1, int y2, uint16_t col);

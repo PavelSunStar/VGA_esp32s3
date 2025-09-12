@@ -37,10 +37,44 @@ void VGA_GFX::cls(uint16_t col){
         while (sizeY-- > 0){
             memcpy(scr, savePos, skip2X);
             scr += skip;
-        }
+        }            
     } else {
         uint8_t* scr = _vga._buf8 + _vga._backBuff;
         memset(scr, (uint8_t)col, _vga.getScrSize());
+    }
+}
+
+void VGA_GFX::clsViewport(uint16_t col){
+    int x1 = _vga.get_vX1();
+    int y1 = _vga.get_vY1();
+    int x2 = _vga.get_vX2();
+    int y2 = _vga.get_vY2();
+
+    int sizeX = x2 - x1 + 1;
+    int sizeY = y2 - y1 + 1;
+    int width = _vga.getScrWidth();
+
+    if (_vga.getBpp() == 16){
+        uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y1) + x1;
+        uint16_t* savePos = scr;
+        int copyBytes = sizeX << 1;
+
+        while (sizeX-- > 0) *scr++ = col;
+        scr += width - x2 + x1 - 1;
+        sizeY--;
+
+        while (sizeY-- > 0){
+            memcpy(scr, savePos, copyBytes);
+            scr += width;
+        }
+    } else {
+        uint8_t* scr = _vga._buf8 + _vga._backBuff + *(_vga._fastY + y1) + x1;
+        uint8_t color = (uint8_t)col;
+        
+        while (sizeY-- > 0){
+            memset(scr, color, sizeX);
+            scr += width;
+        }   
     }
 }
 
@@ -155,6 +189,7 @@ void VGA_GFX::fillRect(int x1, int y1, int x2, int y2, uint16_t col){
     x2 = std::min(_vga.get_vX2(), x2);
     y1 = std::max(_vga.get_vY1(), y1);
     y2 = std::min(_vga.get_vY2(), y2);
+    
     int sizeX = x2 - x1 + 1;
     int sizeY = y2 - y1 + 1;     
     int width = _vga.getScrWidth();
@@ -162,13 +197,13 @@ void VGA_GFX::fillRect(int x1, int y1, int x2, int y2, uint16_t col){
     if (_vga.getBpp() == 16){
         uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y1) + x1;
         uint16_t* savePos = scr;
-        int skip1 = width << 1;
-        int skip2 = width - x2 + x1 - 1;
+
+        int skip = width - x2 + x1 - 1;
         int copyBytes = sizeX << 1;
         int saveSizeX = sizeX;
 
         while (sizeX-- > 0) *scr++ = col;
-        scr += skip2;
+        scr += skip;
         sizeY--;
 
         while (sizeY-- > 0){
@@ -323,7 +358,6 @@ void VGA_GFX::circle(int xc, int yc, int r, uint16_t col){
         }
     }
 }
-
 
 void VGA_GFX::fillCircle(int xc, int yc, int r, uint16_t col){
     int x = 0;

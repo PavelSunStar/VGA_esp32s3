@@ -20,6 +20,11 @@ VGA_esp32s3::~VGA_esp32s3() {
         _buf8 = nullptr;
     }
 
+    if (_tmpBuf) {
+        heap_caps_free(_tmpBuf);
+        _tmpBuf = nullptr;
+    }
+
     free(_fastY); _fastY = nullptr;
 }
 
@@ -158,6 +163,13 @@ bool VGA_esp32s3::setPanelConfig() {
         memset(_buf8, 0, (_dBuff ? _scrSize << 1 : _scrSize));
     }
     
+    //Temp buffer
+    caps = MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT; // внутреняя RAM всегда
+    _tmpBufSize = _scrWidth * ((_colBit == 16) ? sizeof(uint16_t) : sizeof(uint8_t));
+    _tmpBuf = (uint8_t*)heap_caps_malloc(_tmpBufSize, caps);
+    assert(_tmpBuf);
+    memset(_tmpBuf, 0, _tmpBufSize);
+
     regCallbackSemaphore();
     //esp_lcd_panel_disp_on_off(_panel_handle, true);
 
@@ -383,6 +395,8 @@ bool VGA_esp32s3::init(const int *mode, int scale, bool dBuff, bool psRam) {
     _lines = (_bounce_buffer_size_px / _width) >> _scale;
     _width2X = _width << 1;
     _width4X = _width2X << 1;
+    _scrWidth2X = _scrWidth << 1;
+    _scrWidth4X = _scrWidth2X << 1;
     setViewport(0, 0, _scrXX, _scrYY);
 
     if (!setPanelConfig()) return false;
@@ -391,14 +405,17 @@ bool VGA_esp32s3::init(const int *mode, int scale, bool dBuff, bool psRam) {
 }
 
 void VGA_esp32s3::setViewport(int x1, int y1, int x2, int y2) {
-    if (x1 == x2 || y1 == y2) return;
+    if (x1 == x2 && y1 == y2) return;
 
     // Обеспечение x1 <= x2 и y1 <= y2
     if (x1 > x2) std::swap(x1, x2);
     if (y1 > y2) std::swap(y1, y2);
 
     // Проверка на нулевую или некорректную область
-    if (x1 < 0 || y1 < 0 || x2 >= _scrWidth || y2 >= _scrHeight) return;
+    x1 = std:: max(0, x1);
+    y1 = std:: max(0, y1);
+    x2 = std:: min(_scrXX, x2);
+    y2 = std:: min(_scrYY, y2);
 
     // Вычисление ширины и высоты области просмотра
     _vX1 = x1;
@@ -406,7 +423,9 @@ void VGA_esp32s3::setViewport(int x1, int y1, int x2, int y2) {
     _vX2 = x2;
     _vY2 = y2;
     _vWidth = _vX2 - _vX1 + 1;
-    _vHeight = _vY2 - _vY1 + 4;
+    _vHeight = _vY2 - _vY1 + 1;
+    _vXX = _vWidth - 1;
+    _vYY = _vHeight - 1;
 } 
 
 void VGA_esp32s3::swap() {
@@ -416,7 +435,338 @@ void VGA_esp32s3::swap() {
     }
 }
 
+void VGA_esp32s3::scrollLeft(){
+    int sizeY = _scrHeight;
+    
+    if (_colBit == 16){
+        uint16_t* scr = _buf16;
+        int copyBytes = _scrXX << 1;
 
+        while (sizeY-- > 0){
+            uint16_t col = *scr;
+            memcpy(scr, scr + 1, copyBytes); // копируем _width-1 пикселей
+            scr += _scrXX;
+            *scr++ = col;
+        }
+    } else {
+        uint8_t* scr = _buf8;
+        
+        while (sizeY-- > 0){
+            uint8_t col = *scr;
+            memcpy(scr, scr + 1, _scrXX); // копируем _width-1 пикселей
+            scr += _scrXX;
+            *scr++ = col;
+        }
+    }
+}
+
+void VGA_esp32s3::scrollRight(){
+    int sizeY = _scrHeight;
+    
+    if (_colBit == 16){
+        uint16_t* scr = _buf16;
+        int copyBytes = _scrXX << 1;
+        
+        while (sizeY-- > 0){
+            scr += _scrXX;
+            uint16_t col = *scr;
+            scr -= _scrXX;
+            memcpy(scr + 1, scr, copyBytes); // копируем _width-1 пикселей
+            *scr = col;
+            scr += _scrWidth;
+        }
+    } else {
+        uint8_t* scr = _buf8;
+        
+        while (sizeY-- > 0){
+            scr += _scrXX;
+            uint8_t col = *scr;
+            scr -= _scrXX;
+            memcpy(scr + 1, scr, _scrXX); // копируем _width-1 пикселей
+            *scr = col;
+            scr += _scrWidth;
+        }
+    }
+}
+
+void VGA_esp32s3::scrollUp(){
+    int sizeY = _scrHeight - 1;
+    
+    if (_colBit == 16){
+        uint16_t* scr = _buf16;
+        memcpy(_tmpBuf, scr, _scrWidth2X);
+
+        while (sizeY-- > 0){
+            memcpy(scr, scr + _scrWidth, _scrWidth2X);
+            scr += _scrWidth;
+        }
+
+        memcpy(scr, _tmpBuf, _scrWidth2X);
+    } else {
+        uint8_t* scr = _buf8;
+        memcpy(_tmpBuf, scr, _scrWidth);
+
+        while (sizeY-- > 0){
+            memcpy(scr, scr + _scrWidth, _scrWidth);
+            scr += _scrWidth;
+        }
+
+        memcpy(scr, _tmpBuf, _scrWidth);
+    }
+}
+
+void VGA_esp32s3::scrollDown(){
+    int sizeY = _scrHeight - 1;
+    
+    if (_colBit == 16){
+        uint16_t* scr = _buf16;
+        scr += *(_fastY + _scrYY);
+        memcpy(_tmpBuf, scr, _scrWidth2X);
+
+        while (sizeY-- > 0){
+            memcpy(scr, scr - _scrWidth, _scrWidth2X);
+            scr -= _scrWidth;
+        }
+
+        memcpy(scr, _tmpBuf, _scrWidth2X);
+    } else {
+        uint8_t* scr = _buf8;
+        scr += *(_fastY + _scrYY);
+        memcpy(_tmpBuf, scr, _scrWidth);
+
+        while (sizeY-- > 0){
+            memcpy(scr, scr - _scrWidth, _scrWidth);
+            scr -= _scrWidth;
+        }
+
+        memcpy(scr, _tmpBuf, _scrWidth);
+    }
+}
+
+void VGA_esp32s3::scrollX(int x){
+    x %= _scrWidth;
+    if (x == 0) return;
+
+    int sizeY = _scrHeight;
+
+    if (_colBit == 16){
+        uint16_t* scr = _buf16;
+
+        if (x > 0){// влево
+            int copyBytes = _scrWidth - x;
+            int copyBytes2X = copyBytes << 1;
+            int X2 = x << 1;
+
+            while (sizeY-- > 0){
+                memcpy(_tmpBuf, scr, X2);
+                memcpy(scr, scr + x, copyBytes2X);
+                memcpy(scr + copyBytes, _tmpBuf, X2);
+                scr += _scrWidth;
+            }
+        } else {// вправо
+            x = -x;
+            int copyBytes = _scrWidth - x;
+            int copyBytes2X = copyBytes << 1;
+            int X2 = x << 1;
+
+            while (sizeY-- > 0){
+                memcpy(_tmpBuf, scr + copyBytes, X2);     
+                memmove(scr + x, scr, copyBytes2X);         
+                memcpy(scr, _tmpBuf, X2);                  
+                scr += _scrWidth;                
+            }
+        }
+    } else {
+        uint8_t* scr = _buf8;        
+
+        if (x > 0){// влево
+            int copyBytes = _scrWidth - x;
+
+            while (sizeY-- > 0){                
+                memcpy(_tmpBuf, scr, x);
+                memcpy(scr, scr + x, copyBytes);
+                memcpy(scr + copyBytes, _tmpBuf, x);
+                scr += _scrWidth;
+            }    
+        } else {// вправо            
+            x = -x;
+            int copyBytes = _scrWidth - x;
+
+            while (sizeY-- > 0) {
+                memcpy(_tmpBuf, scr + copyBytes, x);      // сохранить последние x
+                memmove(scr + x, scr, copyBytes);         // сдвинуть вправо (!!! memmove)
+                memcpy(scr, _tmpBuf, x);                  // вернуть слева
+                scr += _scrWidth;
+            }
+        }
+    }
+}
+
+void VGA_esp32s3::scrollY(int y) {
+    y %= _scrHeight;
+    if (y == 0) return;
+
+    if (_colBit == 16) {
+        int rowBytes = _scrWidth2X;
+
+        if (y > 0) { // вверх
+            while (y-- > 0) {
+                uint16_t* scr = _buf16;
+
+                memcpy(_tmpBuf, scr, rowBytes);
+                int rows = _scrYY;
+
+                while (rows-- > 0) {
+                    memcpy(scr, scr + _scrWidth, rowBytes);
+                    scr += _scrWidth;
+                }
+
+                memcpy(scr, _tmpBuf, rowBytes);
+            }
+        } else { // вниз
+            y = -y;
+            while (y-- > 0) {
+                uint16_t* scr = _buf16 + _scrWidth * _scrYY;
+
+                memcpy(_tmpBuf, scr, rowBytes);
+                int rows = _scrYY;
+
+                while (rows-- > 0) {
+                    memcpy(scr, scr - _scrWidth, rowBytes);
+                    scr -= _scrWidth;
+                }
+
+                memcpy(scr, _tmpBuf, rowBytes);
+            }
+        }
+
+    } else {
+        int rowBytes = _scrWidth;
+
+        if (y > 0) { // вверх
+            while (y-- > 0) {
+                uint8_t* scr = _buf8;
+
+                memcpy(_tmpBuf, scr, rowBytes);
+                int rows = _scrYY;
+
+                while (rows-- > 0) {
+                    memcpy(scr, scr + _scrWidth, rowBytes);
+                    scr += _scrWidth;
+                }
+
+                memcpy(scr, _tmpBuf, rowBytes);
+            }
+        } else { // вниз
+            y = -y;
+
+            while (y-- > 0) {
+                uint8_t* scr = _buf8 + _scrWidth * (_scrYY);
+
+                memcpy(_tmpBuf, scr, rowBytes);
+                int rows = _scrYY;
+
+                while (rows-- > 0) {
+                    memcpy(scr, scr - _scrWidth, rowBytes);
+                    scr -= _scrWidth;
+                }
+
+                memcpy(scr, _tmpBuf, rowBytes);
+            }
+        }
+    }
+}
+
+void VGA_esp32s3::scrollBar(int x1, int y1, int x2, int y2, int sx, int sy){
+    if (x1 > x2) std::swap(x1, x2);
+    if (y1 > y2) std::swap(y1, y2); 
+    if (x1 > _scrXX || y1 > _scrYY || x2 < 0 || y2 < 0) return;
+
+    sx %= _scrWidth; 
+    sy %= _scrHeight;
+    if (sx == 0 && sy == 0) return;
+
+    x1 = std::max(0, x1);
+    y1 = std::max(0, y1);
+    x2 = std::min(_scrXX, x2);    
+    y2 = std::min(_scrYY, y2);
+    
+    int sizeX = x2 - x1 + 1;
+    int sizeY = y2 - y1 + 1;     
+    
+    if (sx != 0){
+        if (_colBit == 16){
+            if (sx > 0){
+
+            } else {
+
+            }
+        } else {
+            if (sx > 0){
+
+            } else {
+
+            }
+        }
+    }
+
+    if (sy != 0){
+        if (_colBit == 16){
+            if (sy > 0){
+
+            } else {
+
+            }
+        } else {
+            if (sy > 0){
+
+            } else {
+
+            }
+        }
+    }    
+}
+
+/*
+void VGA_esp32s3::scrollY(int y) {
+    if (y == 0) return;
+    y %= _scrHeight;
+    if (y == 0) return;
+
+    int rowBytes = (_colBit == 16) ? (_scrWidth * sizeof(uint16_t)) : _scrWidth;
+    uint8_t* buf = (_colBit == 16) ? (uint8_t*)_buf16 : _buf8;
+
+    if (y > 0) { // вверх
+        int copyRows = _scrHeight - y;
+        int copyBytes = copyRows * rowBytes;
+
+        // сохранить верхние y строк
+        memcpy(_tmpBuf, buf, y * rowBytes);
+        // сдвинуть остальные строки вверх
+        memmove(buf, buf + y * rowBytes, copyBytes);
+        // вернуть сохранённые строки вниз
+        memcpy(buf + copyBytes, _tmpBuf, y * rowBytes);
+    } else { // вниз
+        y = -y;
+        int copyRows = _scrHeight - y;
+        int copyBytes = copyRows * rowBytes;
+
+        // сохранить нижние y строк
+        memcpy(_tmpBuf, buf + copyBytes, y * rowBytes);
+        // сдвинуть остальные строки вниз
+        memmove(buf + y * rowBytes, buf, copyBytes);
+        // вернуть сохранённые строки вверх
+        memcpy(buf, _tmpBuf, y * rowBytes);
+    }
+}
+*/
+/*
+while (sizeY-- > 0) {
+    uint8_t col = *scr;
+    memmove(scr, scr + 1, _xx); // копируем _width-1 пикселей
+    scr[_xx] = col;              // последний пиксель = первый
+    scr += _width;               // переходим на начало следующей строки
+}
 /*
 bool IRAM_ATTR VGA_esp32s3::on_vsync(esp_VGA_panel_handle_t panel,
                                      const esp_VGA_rgb_panel_event_data_t *edata,
