@@ -147,8 +147,7 @@ bool VGA_esp32s3::setPanelConfig() {
     }
 
     // --- Свои буферы ---
-    //uint32_t caps = MALLOC_CAP_DMA | (_psRam ? MALLOC_CAP_SPIRAM : MALLOC_CAP_INTERNAL) | MALLOC_CAP_8BIT;
-    uint32_t caps = MALLOC_CAP_SPIRAM;
+    uint32_t caps = MALLOC_CAP_DMA | (_psRam ? MALLOC_CAP_SPIRAM : MALLOC_CAP_INTERNAL) | MALLOC_CAP_8BIT;
     if (_bpp == 16){
         _buf16 = (uint16_t*)heap_caps_malloc((_dBuff ? _scrSize << 1 : _scrSize) , caps);
         assert(_buf16);
@@ -189,7 +188,7 @@ bool IRAM_ATTR VGA_esp32s3::on_bounce_empty(
 
         if (vga->getScale() == 0){
             sour += pos_px;
-            memcpy(dest, sour, len_bytes << 1);
+            memcpy(dest, sour, len_bytes);
         } else if (vga->getScale() == 1){
             sour += pos_px >> 2;
 
@@ -378,7 +377,8 @@ bool VGA_esp32s3::init(const int *mode, int scale, bool dBuff, bool psRam) {
     _scrSize = _scrWidth * _scrHeight * ((_colBit == 16) ? sizeof(uint16_t) : sizeof(uint8_t));
 
     _frontBuff = 0;
-    _backBuff = (_dBuff) ? _scrSize : 0;
+    //_backBuff = (_dBuff) ? _scrSize : 0;
+    _backBuff = (_dBuff) ? (_scrSize / ((_colBit == 16) ? sizeof(uint16_t) : sizeof(uint8_t))) : 0;
     _tik = _width >> 4;
     _lines = (_bounce_buffer_size_px / _width) >> _scale;
     _width2X = _width << 1;
