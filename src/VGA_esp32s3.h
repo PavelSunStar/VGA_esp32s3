@@ -108,15 +108,17 @@ class VGA_esp32s3{
         void setViewport(int x1, int y1, int x2, int y2);
         
         //Screen scroll
-        void scrollX(int x);
-        void scrollY(int y);
+        void scrollX(int sx);
+        void scrollY(int sy);
         void scrollLeft();
         void scrollRight();
         void scrollUp();
         void scrollDown();
         void scrollBar(int x1, int y1, int x2, int y2, int sx, int sy);
 
-        //Viewport scroll;
+        //Copy screen
+        void copyScr(bool backToFront = true);
+        void copyScrRect(int x, int y, int x1, int y1, int x2, int y2, bool backToFront = true);
         
         void swap();   
 
