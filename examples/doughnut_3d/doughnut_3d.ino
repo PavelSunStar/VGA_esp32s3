@@ -39,8 +39,8 @@ void initTables() {
 void setup() {
   vga.init(VGA_esp32s3::MODE512x384x16, 2, true, true);
 
-  scrW = vga.getScrWidth();   // 128
-  scrH = vga.getScrHeight();  // 96
+  scrW = vga.ScrWidth();   // 128
+  scrH = vga.ScrHeight();  // 96
 
   cellW = scrW / cols; // ширина ячейки ≈ 1–2 пикселя
   cellH = scrH / rows; // высота ячейки ≈ 2 пикселя
