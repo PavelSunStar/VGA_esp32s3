@@ -65,39 +65,51 @@ class VGA_esp32s3{
         //               0  1  2  3  4   5   6   7   8  9  10  11  12  13  14  15  16 17
         int _pins[18] = {4, 5, 6, 7, 15, 16, 17, 18, 8, 9, 14, 10, 11, 12, 13, 21, 1, 2};
 
-        uint8_t* _buf8 = nullptr;
-		uint16_t* _buf16 = nullptr; 
-        int* _fastY = nullptr;
-        uint8_t* _tmpBuf = nullptr;
-        int _frontBuff, _backBuff;
+        uint8_t*    _buf8 = nullptr;
+		uint16_t*   _buf16 = nullptr; 
+        int*        _fastY = nullptr;
+        uint8_t*    _tmpBuf = nullptr;
+        int         _frontBuff, _backBuff;
 
         VGA_esp32s3();         // Конструктор 
         ~VGA_esp32s3();        // Деструктор
 
-        int getWidth()      {return _width;};
-        int getHeight()     {return _height;};
-        int getXX()         {return _xx;};
-        int getYY()         {return _yy;};
-        int getColBit()     {return _colBit;};
-        int getSize()       {return _size;};
+        int Width()         {return _width;};
+        int Height()        {return _height;};
+        int CX()            {return _cx;};
+        int CY()            {return _cy;};
+        int XX()            {return _xx;};
+        int YY()            {return _yy;};
+        int Size()          {return _size;};
+        int ColBit()        {return _colBit;};
+        int BPP()           {return _bpp;};
+        int BPPShift()      {return _bppShift;};
+        int Scale()         {return _scale;};
 
-        int getScrWidth()   {return _scrWidth;};
-        int getScrHeight()  {return _scrHeight;};        
-        int getScrXX()      {return _scrXX;};
-        int getScrYY()      {return _scrYY;};
-        int getBpp()        {return _bpp;};
-        int getScale()      {return _scale;};
-        int getScrSize()    {return _scrSize;};
-        int getMaxCol()     {return 1 <<_bpp;};
+        int Aspect()        {return _aspect;};
+        int ScrWidth()      {return _scrWidth;};
+        int ScrHeight()     {return _scrHeight;};
+        int ScrCX()         {return _scrCX;};
+        int ScrCY()         {return _scrCY;};               
+        int ScrXX()         {return _scrXX;};
+        int ScrYY()         {return _scrYY;};
+        int ScrSize()       {return _scrSize;};
+        int ScrFullSize()   {return _scrFullSize;};
+
+        int getMaxCol()     {return 1 << _bpp;};
 
         //Viewport
-        int get_vX1()       {return _vX1;};
-        int get_vX2()       {return _vX2;};
-        int get_vY1()       {return _vY1;};
-        int get_vY2()       {return _vY2;};
-        int get_vWidth()    {return _vWidth;};
-        int get_vHeight()   {return _vHeight;};
-        
+        int vX1()           {return _vX1;};
+        int vX2()           {return _vX2;};
+        int vY1()           {return _vY1;};
+        int vY2()           {return _vY2;};
+        int vWidth()        {return _vWidth;};
+        int vHeight()       {return _vHeight;};
+        int vCX()           {return _vCX;};
+        int vCY()           {return _vCY;};
+        int vXX()           {return _vXX;};
+        int vYY()           {return _vYY;};
+
         void setPins(uint8_t r0, uint8_t r1, uint8_t r2, uint8_t r3, uint8_t r4, 
                      uint8_t g0, uint8_t g1, uint8_t g2, uint8_t g3, uint8_t g4, uint8_t g5,
                      uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4,
@@ -125,8 +137,7 @@ class VGA_esp32s3{
    protected:
         //Параметры режима
         int _pclk_hz;
-        int _width, _height, _xx, _yy, _size;
-        int _colBit, _bpp;
+
         int _hsync_back_porch;
         int _hsync_front_porch;
         int _hsync_pulse_width;
@@ -136,19 +147,32 @@ class VGA_esp32s3{
         int _scale; 
         size_t _bounce_buffer_size_px, _lastBounceBufferPos;
         bool _psRam, _dBuff;
+
         int _lines, _tik;
         int _width2X, _width4X;
         int _scrWidth2X, _scrWidth4X;
         int _tmpBufSize;
 
-        //Screen
-        int _scrWidth, _scrHeight;
-        int _scrSize, _scrXX, _scrYY;
+        //Mode
+        int _bppShift;
+        int _width, _height;
+        int _cx, _cy;
+        int _xx, _yy;
+        int _size;
+        int _colBit, _bpp;
         
+        //Screen
+        float _aspect;
+        int _scrWidth, _scrHeight;
+        int _scrCX, _scrCY;
+        int _scrXX, _scrYY;
+        int _scrSize, _scrFullSize;
+
         //Viewport
         int _vX1, _vX2;
         int _vY1, _vY2;
-        int _vWidth, _vHeight;
+        int _vWidth, _vHeight;        
+        int _vCX, _vCY;
         int _vXX, _vYY;
 
         esp_lcd_panel_handle_t _panel_handle = NULL;

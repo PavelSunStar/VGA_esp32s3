@@ -48,9 +48,9 @@ bool VGA_Sprite::allocateMemory(int xx, int yy) {
 bool VGA_Sprite::create(int xx, int yy, int num) {
     if (xx <= 0 || yy <= 0 || num == 0) return false;
 
-    _scrWidth  = _vga.getScrWidth();
-    _scrHeight = _vga.getScrHeight();
-    _bpp       = _vga.getBpp();
+    _scrWidth  = _vga.ScrWidth();
+    _scrHeight = _vga.ScrHeight();
+    _bpp       = _vga.BPP();
 
     _width  = xx; _xx = _width - 1;
     _height = yy; _yy = _height - 1;
@@ -88,20 +88,20 @@ void VGA_Sprite::putImage(int x, int y, int num, bool mirror_y) {
     int x2 = x + _width - 1;
     int y2 = y + _height - 1;
 
-    if (x > _vga.get_vX2() || y > _vga.get_vY2() || x2 < _vga.get_vX1() || y2 < _vga.get_vY1())
+    if (x > _vga.vX2() || y > _vga.vY2() || x2 < _vga.vX1() || y2 < _vga.vY1())
         return; // полностью за пределами экрана
 
     // Координаты начала отрисовки
-    int dx = std::max(x, _vga.get_vX1());
-    int dy = std::max(y, _vga.get_vY1());
+    int dx = std::max(x, _vga.vX1());
+    int dy = std::max(y, _vga.vY1());
 
     // Смещение внутри спрайта
     int sx = dx - x;
     int sy = dy - y;
 
     // Размер отрисовываемой части
-    int sizex = std::min(x2, _vga.get_vX2()) - dx + 1;
-    int sizey = std::min(y2, _vga.get_vY2()) - dy + 1;
+    int sizex = std::min(x2, _vga.vX2()) - dx + 1;
+    int sizey = std::min(y2, _vga.vY2()) - dy + 1;
     int imgAdd = mirror_y ? -_width : _width;
 
     if (_bpp == 16) {
@@ -132,20 +132,20 @@ void VGA_Sprite::putSprite(int x, int y, uint16_t maskColor, int num, bool mirro
     int x2 = x + _width - 1;
     int y2 = y + _height - 1;
 
-    if (x > _vga.get_vX2() || y > _vga.get_vY2() || x2 < _vga.get_vX1() || y2 < _vga.get_vY1())
+    if (x > _vga.vX2() || y > _vga.vY2() || x2 < _vga.vX1() || y2 < _vga.vY1())
         return; // полностью за пределами экрана
 
     // Координаты начала отрисовки
-    int dx = std::max(x, _vga.get_vX1());
-    int dy = std::max(y, _vga.get_vY1());
+    int dx = std::max(x, _vga.vX1());
+    int dy = std::max(y, _vga.vY1());
 
     // Смещение внутри спрайта
     int sx = dx - x;
     int sy = dy - y;
 
     // Размер отрисовываемой части
-    int sizeX = std::min(x2, _vga.get_vX2()) - dx + 1;
-    int sizeY = std::min(y2, _vga.get_vY2()) - dy + 1;
+    int sizeX = std::min(x2, _vga.vX2()) - dx + 1;
+    int sizeY = std::min(y2, _vga.vY2()) - dy + 1;
     int imgAdd = mirror_y ? -_width : _width;
 
     if (_bpp == 16) {
@@ -249,8 +249,8 @@ void VGA_Sprite::vLine(int x, int y1, int y2, uint16_t col){
     if (x < 0 || x > _xx) return;
 
     if (y1 > y2) std::swap(y1, y2);
-    y1 = std::max(_vga.get_vY1(), y1);
-    y2 = std::min(_vga.get_vY2(), y2);
+    y1 = std::max(_vga.vY1(), y1);
+    y2 = std::min(_vga.vY2(), y2);
     int sizeY = y2 - y1 + 1;
     int skip = _width;
     

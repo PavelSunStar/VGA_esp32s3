@@ -42,7 +42,12 @@ class VGA_GFX : public VGA_esp32s3 {
         void spiral(int xc, int yc, int r, int turns, uint16_t col);
         void wave(int x, int y, int len, int amp, int freq, uint16_t col);
 
+        //Vectors
+        //void vPutPixel(float xn, float yn, uint16_t col);
+
     protected:
+
+        
         VGA_Math _math;
         VGA_esp32s3& _vga;  // ссылка, а не копия
 };    

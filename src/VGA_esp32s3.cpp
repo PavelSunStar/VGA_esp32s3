@@ -194,14 +194,14 @@ bool IRAM_ATTR VGA_esp32s3::on_bounce_empty(
     VGA_esp32s3* vga = (VGA_esp32s3*)user_ctx;
     int lines = vga->_lines;
 
-    if (vga->getBpp() == 16){
+    if (vga->BPP() == 16){
         uint16_t* dest = (uint16_t*)bounce_buf;
         uint16_t* sour = vga->_buf16 + vga->_frontBuff;
 
-        if (vga->getScale() == 0){
+        if (vga->Scale() == 0){
             sour += pos_px;
             memcpy(dest, sour, len_bytes);
-        } else if (vga->getScale() == 1){
+        } else if (vga->Scale() == 1){
             sour += pos_px >> 2;
 
             while (lines-- > 0){
@@ -242,10 +242,10 @@ bool IRAM_ATTR VGA_esp32s3::on_bounce_empty(
         uint8_t* dest = (uint8_t*)bounce_buf;
         uint8_t* sour = vga->_buf8 + vga->_frontBuff;
 
-        if (vga->getScale() == 0){
+        if (vga->Scale() == 0){
             sour += pos_px;
             memcpy(dest, sour, len_bytes);
-        } else if (vga->getScale() == 1){
+        } else if (vga->Scale() == 1){
             sour += pos_px >> 2;
 
             while (lines-- > 0){
@@ -374,9 +374,12 @@ bool VGA_esp32s3::init(const int *mode, int scale, bool dBuff, bool psRam) {
     _bounce_buffer_size_px  = mode[11]; //_height / 10 * _width;//mode[12];
 
     _scale = (scale >= 2) ? 2 : (scale == 1 ? 1 : 0);
+    _bppShift = (_colBit == 16 ? 1 : 0);
     _psRam = psRam;
     _dBuff = dBuff;
 
+    _cx = _width >> 1;
+    _cy = _height >> 1;
     _xx = _width - 1;
     _yy = _height - 1;    
     _size = _width * _height;
@@ -384,13 +387,16 @@ bool VGA_esp32s3::init(const int *mode, int scale, bool dBuff, bool psRam) {
 
     _scrWidth = _width >> _scale;
     _scrHeight = _height >> _scale;
+    _aspect = (float)_scrWidth / _scrHeight;
+    _scrCX = _scrWidth >> 1;
+    _scrCY = _scrHeight >> 1;    
     _scrXX = _scrWidth - 1;
     _scrYY = _scrHeight - 1;
-    _scrSize = _scrWidth * _scrHeight * ((_colBit == 16) ? sizeof(uint16_t) : sizeof(uint8_t));
+    _scrSize = _scrWidth * _scrHeight;
+    _scrFullSize = _scrSize << _bppShift;
 
     _frontBuff = 0;
-    //_backBuff = (_dBuff) ? _scrSize : 0;
-    _backBuff = (_dBuff) ? (_scrSize / ((_colBit == 16) ? sizeof(uint16_t) : sizeof(uint8_t))) : 0;
+    _backBuff = (_dBuff) ? _scrSize << _bppShift : 0;
     _tik = _width >> 4;
     _lines = (_bounce_buffer_size_px / _width) >> _scale;
     _width2X = _width << 1;
@@ -424,6 +430,8 @@ void VGA_esp32s3::setViewport(int x1, int y1, int x2, int y2) {
     _vY2 = y2;
     _vWidth = _vX2 - _vX1 + 1;
     _vHeight = _vY2 - _vY1 + 1;
+    _vCX = _vWidth >> 1;
+    _vCY = _vHeight >> 1;
     _vXX = _vWidth - 1;
     _vYY = _vHeight - 1;
 } 

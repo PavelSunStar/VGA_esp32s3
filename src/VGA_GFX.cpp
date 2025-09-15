@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "VGA_GFX.h"
+#include "VGA_Vector.h"
 #include <cstring>
 
 VGA_GFX::VGA_GFX(VGA_esp32s3& vga) : _vga(vga){
@@ -10,12 +11,38 @@ VGA_GFX::~VGA_GFX(){
 
 }
 
+//======================================================================================================
+/*
+void VGA_GFX::vPutPixel(float xn, float yn, uint16_t col) {
+    // Отсечение координат за пределами [-1, 1]
+    if (xn < -1.0f || xn > 1.0f || yn < -1.0f || yn > 1.0f) return;
+
+    // Предвычисляем половины размеров экрана один раз
+    int halfWidth  = _vga.getHalfScrWidth();
+    int halfHeight = _vga.getHalfScrHeight();
+
+    // Преобразуем координаты из нормализованных [-1,1] в экранные (с округлением)
+    int x = (int)((xn + 1.0f) * halfWidth + 0.5f);
+
+    int y = (int)(halfHeight - yn * halfHeight + 0.5f); // инверсия Y
+
+    // Контроль границ на случай округления
+    if (x < 0) x = 0;
+    if (x >= _vga.getScrWidth()) x = _vga.getScrWidth() - 1;
+    if (y < 0) y = 0;
+    if (y >= _vga.getScrHeight()) y = _vga.getScrHeight() - 1;
+
+    // Вызов низкоуровневого метода рисования пикселя
+    putPixel(x, y, col);
+}
+*/
+//======================================================================================================
 uint16_t VGA_GFX::getCol(uint8_t r, uint8_t g, uint8_t b) {
-    if (_vga.getBpp() == 16) {
+    if (_vga.BPP() == 16) {
         // формируем 16-битный цвет RGB565
         return ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);      
     } 
-    else if (_vga.getBpp() == 8) {
+    else if (_vga.BPP() == 8) {
         // формируем 8-битный цвет RGB332
         return ((r >> 5) << 5) | ((g >> 5) << 2) | (b >> 6); 
     }
@@ -24,37 +51,37 @@ uint16_t VGA_GFX::getCol(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void VGA_GFX::cls(uint16_t col){
-    if (_vga.getBpp() == 16) {
+    if (_vga.BPP() == 16) {
         uint16_t* scr = _vga._buf16 + _vga._backBuff;
         uint16_t* savePos = scr;
 
         int sizeX;
-        int skip = sizeX = _vga.getScrWidth();
+        int skip = sizeX = _vga.ScrWidth();
         while (sizeX-- > 0) *scr++ = col;
 
-        int skip2X = skip << 1;
-        int sizeY = _vga.getScrYY();
+        int copyBytes = skip << 1;
+        int sizeY = _vga.ScrYY();
         while (sizeY-- > 0){
-            memcpy(scr, savePos, skip2X);
+            memcpy(scr, savePos, copyBytes);
             scr += skip;
         }            
     } else {
         uint8_t* scr = _vga._buf8 + _vga._backBuff;
-        memset(scr, (uint8_t)col, _vga.getScrSize());
+        memset(scr, (uint8_t)col, _vga.ScrSize());
     }
 }
 
 void VGA_GFX::clsViewport(uint16_t col){
-    int x1 = _vga.get_vX1();
-    int y1 = _vga.get_vY1();
-    int x2 = _vga.get_vX2();
-    int y2 = _vga.get_vY2();
+    int x1 = _vga.vX1();
+    int y1 = _vga.vY1();
+    int x2 = _vga.vX2();
+    int y2 = _vga.vY2();
 
     int sizeX = x2 - x1 + 1;
     int sizeY = y2 - y1 + 1;
-    int width = _vga.getScrWidth();
+    int width = _vga.ScrWidth();
 
-    if (_vga.getBpp() == 16){
+    if (_vga.BPP() == 16){
         uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y1) + x1;
         uint16_t* savePos = scr;
         int copyBytes = sizeX << 1;
@@ -79,9 +106,9 @@ void VGA_GFX::clsViewport(uint16_t col){
 }
 
 void VGA_GFX::putPixel(int x, int y, uint16_t col) {
-    if (x < _vga.get_vX1() || y < _vga.get_vY1() || x > _vga.get_vX2() ||  y > _vga.get_vY2()) return;
+    if (x < _vga.vX1() || y < _vga.vY1() || x > _vga.vX2() ||  y > _vga.vY2()) return;
 
-    if (_vga.getBpp() == 16){
+    if (_vga.BPP() == 16){
         uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y) + x;
         *scr = col;
     } else {
@@ -91,14 +118,14 @@ void VGA_GFX::putPixel(int x, int y, uint16_t col) {
 }
 
 void VGA_GFX::hLine(int x1, int y, int x2, uint16_t col){
-    if (y < _vga.get_vY1() || y > _vga.get_vY2()) return;
+    if (y < _vga.vY1() || y > _vga.vY2()) return;
 
     if (x1 > x2) std::swap(x1, x2);
-    x1 = std::max(_vga.get_vX1(), x1);
-    x2 = std::min(_vga.get_vX2(), x2);
+    x1 = std::max(_vga.vX1(), x1);
+    x2 = std::min(_vga.vX2(), x2);
     int sizeX = x2 - x1 + 1;
     
-    if (_vga.getBpp() == 16){
+    if (_vga.BPP() == 16){
         uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y) + x1;
         while (sizeX-- > 0) *scr++ = col; 
     } else {
@@ -108,15 +135,15 @@ void VGA_GFX::hLine(int x1, int y, int x2, uint16_t col){
 }
 
 void VGA_GFX::vLine(int x, int y1, int y2, uint16_t col){
-    if (x < _vga.get_vX1() || x > _vga.get_vX2()) return;
+    if (x < _vga.vX1() || x > _vga.vX2()) return;
 
     if (y1 > y2) std::swap(y1, y2);
-    y1 = std::max(_vga.get_vY1(), y1);
-    y2 = std::min(_vga.get_vY2(), y2);
+    y1 = std::max(_vga.vY1(), y1);
+    y2 = std::min(_vga.vY2(), y2);
     int sizeY = y2 - y1 + 1;
-    int skip = _vga.getScrWidth();
+    int skip = _vga.ScrWidth();
     
-    if (_vga.getBpp() == 16){
+    if (_vga.BPP() == 16){
         uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y1) + x;
 
         while (sizeY-- > 0){ 
@@ -138,16 +165,16 @@ void VGA_GFX::rect(int x1, int y1, int x2, int y2, uint16_t col){
     if (x1 > x2) std::swap(x1, x2);
     if (y1 > y2) std::swap(y1, y2);
 
-    if (x1 > _vga.get_vX2() || y1 > _vga.get_vY2() || x2 < _vga.get_vX1() || y2 < _vga.get_vY1()){
+    if (x1 > _vga.vX2() || y1 > _vga.vY2() || x2 < _vga.vX1() || y2 < _vga.vY1()){
         return;
-    } else if (x1 >= _vga.get_vX1() && y1 >= _vga.get_vY1() && x2 <= _vga.get_vX2() && y2 <= _vga.get_vY2()){
+    } else if (x1 >= _vga.vX1() && y1 >= _vga.vY1() && x2 <= _vga.vX2() && y2 <= _vga.vY2()){
         int sizeX = x2 - x1 + 1; 
         int sizeY = y2 - y1 - 1;
-        int width = _vga.getScrWidth();
+        int width = _vga.ScrWidth();
         int skip1 = x2 - x1; 
         int skip2 = width - x2 + x1;
         
-        if (_vga.getBpp() == 16){
+        if (_vga.BPP() == 16){
             uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y1) + x1;
             int saveSizeX = sizeX;
             
@@ -183,24 +210,24 @@ void VGA_GFX::rect(int x1, int y1, int x2, int y2, uint16_t col){
 void VGA_GFX::fillRect(int x1, int y1, int x2, int y2, uint16_t col){
     if (x1 > x2) std::swap(x1, x2);
     if (y1 > y2) std::swap(y1, y2);
-    if (x1 > _vga.get_vX2() || y1 > _vga.get_vY2() || x2 < _vga.get_vX1() || y2 < _vga.get_vY1()) return; 
+    if (x1 > _vga.vX2() || y1 > _vga.vY2() || x2 < _vga.vX1() || y2 < _vga.vY1()) return; 
 
-    x1 = std::max(_vga.get_vX1(), x1);
-    x2 = std::min(_vga.get_vX2(), x2);
-    y1 = std::max(_vga.get_vY1(), y1);
-    y2 = std::min(_vga.get_vY2(), y2);
+    x1 = std::max(_vga.vX1(), x1);
+    x2 = std::min(_vga.vX2(), x2);
+    y1 = std::max(_vga.vY1(), y1);
+    y2 = std::min(_vga.vY2(), y2);
     
     int sizeX = x2 - x1 + 1;
     int sizeY = y2 - y1 + 1;     
-    int width = _vga.getScrWidth();
+    int width = _vga.ScrWidth();
 
-    if (_vga.getBpp() == 16){
+    if (_vga.BPP() == 16){
         uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y1) + x1;
         uint16_t* savePos = scr;
 
         int skip = width - x2 + x1 - 1;
         int copyBytes = sizeX << 1;
-        int saveSizeX = sizeX;
+        int saveSizeX = sizeX; 
 
         while (sizeX-- > 0) *scr++ = col;
         scr += skip;
@@ -238,18 +265,18 @@ void VGA_GFX::line(int x1, int y1, int x2, int y2, uint16_t col){
         // Инициализируем ошибку
         int err = dx - dy; 
 
-        int xx1 = _vga.get_vX1();
-        int yy1 = _vga.get_vY1();
-        int xx2 = _vga.get_vX2();
-        int yy2 = _vga.get_vY2();
+        int xx1 = _vga.vX1();
+        int yy1 = _vga.vY1();
+        int xx2 = _vga.vX2();
+        int yy2 = _vga.vY2();
 
-        if (_vga.getBpp() == 16){
+        if (_vga.BPP() == 16){
             uint16_t* scr = _vga._buf16 + _vga._backBuff;
             uint16_t* tmp = scr;
 
             while (true){
-                if (x1 >= _vga.get_vX1() && x1 <= _vga.get_vX2() &&
-                    y1 >= _vga.get_vY1() && y1 <= _vga.get_vY2()){
+                if (x1 >= _vga.vX1() && x1 <= _vga.vX2() &&
+                    y1 >= _vga.vY1() && y1 <= _vga.vY2()){
                 
                     scr = tmp + *(_vga._fastY + y1) + x1;
                     *scr = col;
@@ -267,8 +294,8 @@ void VGA_GFX::line(int x1, int y1, int x2, int y2, uint16_t col){
             uint8_t color = (uint8_t)col;
 
             while (true){
-                if (x1 >= _vga.get_vX1() && x1 <= _vga.get_vX2() &&
-                    y1 >= _vga.get_vY1() && y1 <= _vga.get_vY2()){
+                if (x1 >= _vga.vX1() && x1 <= _vga.vX2() &&
+                    y1 >= _vga.vY1() && y1 <= _vga.vY2()){
                     uint8_t* scr = tmp + *(_vga._fastY + y1) + x1;
                     *scr = color;
                 }
