@@ -92,7 +92,7 @@ void loop() {
   gfx.cls(0);
   for (int y = 0; y < rows; y++) {
     for (int x = 0; x < cols; x++) {
-      int val = cbuf[x + y * cols];
+      int val = cbuf[x + y * cols] << 11;
       if (val > 0) {
         // заливаем ячейку цветом val
         for (int yy = 0; yy < cellH; yy++) {
