@@ -52,21 +52,21 @@ uint16_t VGA_GFX::getCol(uint8_t r, uint8_t g, uint8_t b) {
 
 void VGA_GFX::cls(uint16_t col){
     if (_vga.BPP() == 16) {
-        uint16_t* scr = _vga._buf16 + _vga._backBuff;
+        uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
         uint16_t* savePos = scr;
 
-        int sizeX;
-        int skip = sizeX = _vga.ScrWidth();
+        int sizeX = _vga.ScrWidth();
+        int skip = sizeX;
+        int copyBytes = sizeX << 1;
         while (sizeX-- > 0) *scr++ = col;
 
-        int copyBytes = skip << 1;
         int sizeY = _vga.ScrYY();
         while (sizeY-- > 0){
             memcpy(scr, savePos, copyBytes);
             scr += skip;
         }            
     } else {
-        uint8_t* scr = _vga._buf8 + _vga._backBuff;
+        uint8_t* scr = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
         memset(scr, (uint8_t)col, _vga.ScrSize());
     }
 }
@@ -80,22 +80,27 @@ void VGA_GFX::clsViewport(uint16_t col){
     int sizeX = x2 - x1 + 1;
     int sizeY = y2 - y1 + 1;
     int width = _vga.ScrWidth();
+    int offset = *(_vga._fastY + y1) + x1;
 
-    if (_vga.BPP() == 16){
-        uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y1) + x1;
-        uint16_t* savePos = scr;
+    if (_vga.BPP() == 16) {
+        uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+        scr += offset;
+        uint16_t* savePos = scr; 
+
+        int skipFirst = width - sizeX;
         int copyBytes = sizeX << 1;
-
+        int skip = width;
         while (sizeX-- > 0) *scr++ = col;
-        scr += width - x2 + x1 - 1;
+        scr += skipFirst;
         sizeY--;
 
         while (sizeY-- > 0){
             memcpy(scr, savePos, copyBytes);
-            scr += width;
+            scr += skip;
         }
     } else {
-        uint8_t* scr = _vga._buf8 + _vga._backBuff + *(_vga._fastY + y1) + x1;
+        uint8_t* scr = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
+        scr += offset;
         uint8_t color = (uint8_t)col;
         
         while (sizeY-- > 0){
@@ -108,11 +113,14 @@ void VGA_GFX::clsViewport(uint16_t col){
 void VGA_GFX::putPixel(int x, int y, uint16_t col) {
     if (x < _vga.vX1() || y < _vga.vY1() || x > _vga.vX2() ||  y > _vga.vY2()) return;
 
+    int offset = *(_vga._fastY + y) + x;
     if (_vga.BPP() == 16){
-        uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y) + x;
+        uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+        scr += offset;
         *scr = col;
     } else {
-        uint8_t* scr = _vga._buf8 + _vga._backBuff + *(_vga._fastY + y) + x;
+        uint8_t* scr = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
+        scr += offset;
         *scr = (uint8_t)col;
     }
 }
@@ -124,12 +132,18 @@ void VGA_GFX::hLine(int x1, int y, int x2, uint16_t col){
     x1 = std::max(_vga.vX1(), x1);
     x2 = std::min(_vga.vX2(), x2);
     int sizeX = x2 - x1 + 1;
+    if (sizeX <= 0) return;
+
+    int offset = *(_vga._fastY + y) + x1;
     
     if (_vga.BPP() == 16){
-        uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y) + x1;
+        uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+        scr += offset;
+
         while (sizeX-- > 0) *scr++ = col; 
     } else {
-        uint8_t* scr = _vga._buf8 + _vga._backBuff + *(_vga._fastY + y) + x1;
+        uint8_t* scr = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
+        scr += offset;
         memset(scr, (uint8_t)col, sizeX);
     }    
 }
@@ -143,15 +157,19 @@ void VGA_GFX::vLine(int x, int y1, int y2, uint16_t col){
     int sizeY = y2 - y1 + 1;
     int skip = _vga.ScrWidth();
     
+    int offset = *(_vga._fastY + y1) + x;
+
     if (_vga.BPP() == 16){
-        uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y1) + x;
+        uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+        scr += offset;
 
         while (sizeY-- > 0){ 
             *scr = col;
             scr += skip;
         }     
     } else {
-        uint8_t* scr = _vga._buf8 + _vga._backBuff + *(_vga._fastY + y1) + x;
+        uint8_t* scr = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
+        scr += offset;
 
         uint8_t color = (uint8_t)col;
         while (sizeY-- > 0){ 
@@ -173,9 +191,11 @@ void VGA_GFX::rect(int x1, int y1, int x2, int y2, uint16_t col){
         int width = _vga.ScrWidth();
         int skip1 = x2 - x1; 
         int skip2 = width - x2 + x1;
-        
+        int offset = *(_vga._fastY + y1) + x1;
+
         if (_vga.BPP() == 16){
-            uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y1) + x1;
+            uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+            scr += offset;
             int saveSizeX = sizeX;
             
             while (sizeX-- > 0) *scr++ = col;
@@ -187,7 +207,8 @@ void VGA_GFX::rect(int x1, int y1, int x2, int y2, uint16_t col){
             }
             while (saveSizeX-- > 0) *scr++ = col;
         } else {
-            uint8_t* scr = _vga._buf8 + _vga._backBuff + *(_vga._fastY + y1) + x1;
+            uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+            scr += offset;
             uint8_t color = (uint8_t) col;
 
             memset(scr, color, sizeX);
@@ -221,8 +242,11 @@ void VGA_GFX::fillRect(int x1, int y1, int x2, int y2, uint16_t col){
     int sizeY = y2 - y1 + 1;     
     int width = _vga.ScrWidth();
 
+    int offset = *(_vga._fastY + y1) + x1;
+
     if (_vga.BPP() == 16){
-        uint16_t* scr = _vga._buf16 + _vga._backBuff + *(_vga._fastY + y1) + x1;
+        uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+        scr += offset;
         uint16_t* savePos = scr;
 
         int skip = width - x2 + x1 - 1;
@@ -238,7 +262,8 @@ void VGA_GFX::fillRect(int x1, int y1, int x2, int y2, uint16_t col){
             scr += width;
         }
     } else {
-        uint8_t* scr = _vga._buf8 + _vga._backBuff + *(_vga._fastY + y1) + x1;
+        uint8_t* scr = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
+        scr += offset;
         uint8_t color = (uint8_t)col;
         
         while (sizeY-- > 0){
@@ -271,7 +296,7 @@ void VGA_GFX::line(int x1, int y1, int x2, int y2, uint16_t col){
         int yy2 = _vga.vY2();
 
         if (_vga.BPP() == 16){
-            uint16_t* scr = _vga._buf16 + _vga._backBuff;
+            uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
             uint16_t* tmp = scr;
 
             while (true){
@@ -289,7 +314,7 @@ void VGA_GFX::line(int x1, int y1, int x2, int y2, uint16_t col){
                 if (e2 < dx){ err += dx; y1 += sy; }
             }
         } else {
-            uint8_t* scr = _vga._buf8 + _vga._backBuff;
+            uint8_t* scr = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
             uint8_t* tmp = scr;            
             uint8_t color = (uint8_t)col;
 

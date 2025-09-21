@@ -5,6 +5,9 @@
 #include "freertos/semphr.h"
 #include <esp_LCD_panel_rgb.h>
 
+#define PTR_OFFSET(ptr, offset)         ((void*)((uint8_t*)(ptr) + (offset)))
+#define PTR_OFFSET_T(ptr, offset, type) ((type*)((uint8_t*)(ptr) + (offset)))
+
 //VGA connect pins ----------------------------------------------------------------------------------------------------
 //R
 #define VGA_PIN_NUM_DATA0          4
@@ -76,11 +79,6 @@ class VGA_esp32s3{
 
         int Width()         {return _width;};
         int Height()        {return _height;};
-        int CX()            {return _cx;};
-        int CY()            {return _cy;};
-        int XX()            {return _xx;};
-        int YY()            {return _yy;};
-        int Size()          {return _size;};
         int ColBit()        {return _colBit;};
         int BPP()           {return _bpp;};
         int BPPShift()      {return _bppShift;};
@@ -96,7 +94,7 @@ class VGA_esp32s3{
         int ScrSize()       {return _scrSize;};
         int ScrFullSize()   {return _scrFullSize;};
 
-        int getMaxCol()     {return 1 << _bpp;};
+        int MaxCol()        {return 1 << _bpp;};
 
         //Viewport
         int vX1()           {return _vX1;};
@@ -122,15 +120,17 @@ class VGA_esp32s3{
         //Screen scroll
         void scrollX(int sx);
         void scrollY(int sy);
-        void scrollLeft();
-        void scrollRight();
-        void scrollUp();
-        void scrollDown();
-        void scrollBar(int x1, int y1, int x2, int y2, int sx, int sy);
+        void scrollXY(int sx, int sy);
+
+        //Window sxroll
+        void winScrollX(int x1, int y1, int x2, int y2, int sx);
+        void winScrollY(int x1, int y1, int x2, int y2, int sy);
+        void winScrollXY(int x1, int y1, int x2, int y2, int sx, int sy);
 
         //Copy screen
         void copyScr(bool backToFront = true);
         void copyScrRect(int x, int y, int x1, int y1, int x2, int y2, bool backToFront = true);
+        void blit(int dx, int dy, int sx1, int sy1, int sx2, int sy2, bool backToFront);
         
         void swap();   
 
@@ -156,8 +156,6 @@ class VGA_esp32s3{
         //Mode
         int _bppShift;
         int _width, _height;
-        int _cx, _cy;
-        int _xx, _yy;
         int _size;
         int _colBit, _bpp;
         
