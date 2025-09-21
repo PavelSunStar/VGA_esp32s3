@@ -1,15 +1,15 @@
-#include <LCD_esp32s3.h>
-#include <LCD_GFX.h>
+#include <VGA_esp32s3.h>
+#include <VGA_GFX.h>
 
-LCD_esp32s3 vga;   
-LCD_GFX gfx(vga); 
+VGA_esp32s3 vga;   
+VGA_GFX gfx(vga); 
 
 int scrX, scrY;
 
 void draw() {
     gfx.cls(0xFFFF);
     int d = scrY / 3;
-
+    
     for (int x = 0; x < scrX - 1; x++) {
         // растягиваем 0..255 на ширину экрана
         uint8_t colIndex = x * 256 / scrX;
@@ -26,22 +26,16 @@ void draw() {
 }
 
 void setup() { 
-  vga.init(LCD_esp32s3::MODE640x480x16, 2, false, true);
-  scrX = vga.getScrWidth() - 1; 
-  scrY = vga.getScrHeight() - 1;
+  //          by default
+  //          r  r  r  r  r   g   g   g   g  g  g   b   b   b   b   b   h  v
+  //          0  1  2  3  4   5   6   7   8  9  10  11  12  13  14  15  16 17
+  vga.setPins(4, 5, 6, 7, 15, 16, 17, 18, 8, 9, 14, 10, 11, 12, 13, 21, 1, 2);
 
-  //gfx.cls(0xffff);
+  vga.init(VGA_esp32s3::MODE640x480x16, 0, false, true);
+  scrX = vga.ScrWidth() - 1;
+  scrY = vga.ScrHeight() - 1; 
+
   draw();
-  //gfx.swap();
-
-  int scrSize = vga.getWidth() * vga.getHeight();
-  for (int y = 1; y < vga.getHeight(); y++){
-    int size = vga.getWidth() * y;
-    if (size % 64 == 0  && size > 5000 && size <= 60000){
-       if (scrSize % size == 0 && size % vga.getScrWidth() == 0)
-        Serial.printf("size = %d, blocks: %d\n", size, scrSize / size);
-    }
-  }
 }
 
 void loop() {
