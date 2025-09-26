@@ -172,7 +172,7 @@ bool VGA_esp32s3::setPanelConfig() {
     esp_lcd_panel_disp_on_off(_panel_handle, true);
 
     printInfo();
-    Serial.println("Init...Ok");
+    Serial.println("Init...Ok\n");
 
     _fastY = (int*) malloc(_scrHeight * sizeof(int));
     for (int y = 0; y < _scrHeight; y++) {
@@ -384,13 +384,16 @@ bool IRAM_ATTR VGA_esp32s3::on_bounce_empty(
 }
 
 bool IRAM_ATTR VGA_esp32s3::on_color_trans_done(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx) {    
-    VGA_esp32s3* vga = (VGA_esp32s3*)user_ctx;
 
     return false; 
 }
 
 bool IRAM_ATTR VGA_esp32s3::on_vsync(esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx)
 {
+    VGA_esp32s3* vga = (VGA_esp32s3*)user_ctx;
+
+    vga->_timer++;
+    
     return true;
 }
 

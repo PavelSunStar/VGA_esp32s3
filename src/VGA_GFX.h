@@ -3,6 +3,18 @@
 #include "VGA_esp32s3.h"
 #include "VGA_Math.h"  
 
+// Быстрое извлечение компонент (R5 G6 B5)
+// каждая уже сдвинута, чтобы её можно было складывать без доп. операций
+// ---- 16 bit (RGB565) ----
+inline int R16(uint16_t c) { return (c >> 11) & 0x1F; }
+inline int G16(uint16_t c) { return (c >> 5)  & 0x3F; }
+inline int B16(uint16_t c) { return  c        & 0x1F; }
+
+// ---- 8 bit (RGB332) ----
+inline int R8(uint8_t c) { return (c >> 5) & 0x07; }
+inline int G8(uint8_t c) { return (c >> 2) & 0x07; }
+inline int B8(uint8_t c) { return  c       & 0x03; }
+
 class VGA_GFX : public VGA_esp32s3 {  
     public:
         VGA_GFX(VGA_esp32s3& vga);    
@@ -13,6 +25,8 @@ class VGA_GFX : public VGA_esp32s3 {
         void cls(uint16_t col);
         void clsViewport(uint16_t col);
         void putPixel(int x, int y, uint16_t col);
+        uint16_t getPixel(int x, int y);
+        uint16_t getFastPixel(int x, int y);
         void hLine(int x1, int y, int x2, uint16_t col);
         void vLine(int x, int y1, int y2, uint16_t col);
         void rect(int x1, int y1, int x2, int y2, uint16_t col);
@@ -42,12 +56,13 @@ class VGA_GFX : public VGA_esp32s3 {
         void spiral(int xc, int yc, int r, int turns, uint16_t col);
         void wave(int x, int y, int len, int amp, int freq, uint16_t col);
 
+        //Effect
+        void blur();
+
         //Vectors
         //void vPutPixel(float xn, float yn, uint16_t col);
 
-    protected:
-
-        
+    protected:        
         VGA_Math _math;
         VGA_esp32s3& _vga;  // ссылка, а не копия
 };    
@@ -99,3 +114,49 @@ class VGA_GFX : public VGA_esp32s3 {
         VGA_esp32s3& _vga;  // ссылка, а не копия
 };  
 */
+
+/*
+//the loop is done every frame
+void loop()
+{
+	//setting the text cursor to the lower left corner of the screen
+	videodisplay.setCursor(0, videodisplay.yres - 8);
+	//setting the text color to white with opaque black background
+	videodisplay.setTextColor(videodisplay.RGB(0xffffff), videodisplay.RGBA(0, 0, 0, 255));
+	//printing the fps
+	videodisplay.print("fps: ");
+	static long f = 0;
+	videodisplay.print(long((f++ * 1000) / millis()));
+
+	//circle parameters
+	float factors[][2] = {{1, 1.1f}, {0.9f, 1.02f}, {1.1, 0.8}};
+	int colors[] = {videodisplay.RGB(0xff0000), videodisplay.RGB(0x00ff00), videodisplay.RGB(0x0000ff)};
+	//animate them with milliseconds
+	float p = millis() * 0.002f;
+	for (int i = 0; i < 3; i++)
+	{
+		//calculate the position
+		int x = videodisplay.xres / 2 + sin(p * factors[i][0]) * videodisplay.xres / 3;
+		int y = videodisplay.yres / 2 + cos(p * factors[i][1]) * videodisplay.yres / 3;
+		//clear the center with a black filled circle
+		videodisplay.fillCircle(x, y, 8, 0);
+		//draw the circle with the color from the array
+		videodisplay.circle(x, y, 10, colors[i]);
+	}
+	//render the flame effect
+	for (int y = 0; y < videodisplay.yres - 9; y++)
+		for (int x = 1; x < videodisplay.xres - 1; x++)
+		{
+			//take the avarage from the surrounding pixels below
+			int c0 = videodisplay.get(x, y);
+			int c1 = videodisplay.get(x, y + 1);
+			int c2 = videodisplay.get(x - 1, y + 1);
+			int c3 = videodisplay.get(x + 1, y + 1);
+			int r = ((c0 & 0x1f) + (c1 & 0x1f) + ((c2 & 0x1f) + (c3 & 0x1f)) / 2) / 3;
+			int g = (((c0 & 0x3e0) + (c1 & 0x3e0) + ((c2 & 0x3e0) + (c3 & 0x3e0)) / 2) / 3) & 0x3e0;
+			int b = (((c0 & 0x3c00) + (c1 & 0x3c00) + ((c2 & 0x3c00) + (c3 & 0x3c00)) / 2) / 3) & 0x3c00;
+			//draw the new pixel
+			videodisplay.dotFast(x, y, r | g | b);
+		}
+}
+        */

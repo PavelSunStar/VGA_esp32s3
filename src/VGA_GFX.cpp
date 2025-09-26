@@ -125,6 +125,34 @@ void VGA_GFX::putPixel(int x, int y, uint16_t col) {
     }
 }
 
+uint16_t VGA_GFX::getPixel(int x, int y) {
+    if (x < _vga.vX1() || y < _vga.vY1() || x > _vga.vX2() ||  y > _vga.vY2()) return 0;
+
+    int offset = *(_vga._fastY + y) + x;
+    if (_vga.BPP() == 16){
+        uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+        scr += offset;
+        return *scr;
+    } else {
+        uint8_t* scr = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
+        scr += offset;
+        return (uint8_t)(*scr & 0xFF);
+    }
+}
+
+uint16_t VGA_GFX::getFastPixel(int x, int y){
+    int offset = *(_vga._fastY + y) + x;
+    if (_vga.BPP() == 16){
+        uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+        scr += offset;
+        return *scr;
+    } else {
+        uint8_t* scr = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
+        scr += offset;
+        return (uint8_t)(*scr & 0xFF);
+    }
+}
+
 void VGA_GFX::hLine(int x1, int y, int x2, uint16_t col){
     if (y < _vga.vY1() || y > _vga.vY2()) return;
 
@@ -207,7 +235,7 @@ void VGA_GFX::rect(int x1, int y1, int x2, int y2, uint16_t col){
             }
             while (saveSizeX-- > 0) *scr++ = col;
         } else {
-            uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+            uint8_t* scr = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
             scr += offset;
             uint8_t color = (uint8_t) col;
 
@@ -1066,9 +1094,113 @@ void VGA_GFX::wave(int x, int y, int len, int amp, int freq, uint16_t col) {
     }
 }
 
+void VGA_GFX::blur() {
+    int width  = _vga.ScrWidth();
+    int height = _vga.ScrHeight();
+
+    if (_vga.BPP() == 16) {
+        // ---- RGB565 ----
+        uint16_t* buf = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+
+        for (int y = 0; y < height - 1; y++) {
+            uint16_t* line0 = buf + y * width;
+            uint16_t* line1 = buf + (y + 1) * width;
+
+            for (int x = 1; x < width - 1; x++) {
+                uint16_t c0 = line0[x];
+                uint16_t c1 = line1[x];
+                uint16_t c2 = line1[x - 1];
+                uint16_t c3 = line1[x + 1];
+
+                int r = (R16(c0) + R16(c1) + ((R16(c2) + R16(c3)) >> 1)) / 3;
+                int g = (G16(c0) + G16(c1) + ((G16(c2) + G16(c3)) >> 1)) / 3;
+                int b = (B16(c0) + B16(c1) + ((B16(c2) + B16(c3)) >> 1)) / 3;
+
+                line0[x] = (r << 11) | (g << 5) | b;
+            }
+        }
+
+    } else {
+        // ---- RGB332 ----
+        uint8_t* buf = PTR_OFFSET_T(_vga._buf8, _vga._backBuff, uint8_t);
+
+        for (int y = 0; y < height - 1; y++) {
+            uint8_t* line0 = buf + y * width;
+            uint8_t* line1 = buf + (y + 1) * width;
+
+            for (int x = 1; x < width - 1; x++) {
+                uint8_t c0 = line0[x];
+                uint8_t c1 = line1[x];
+                uint8_t c2 = line1[x - 1];
+                uint8_t c3 = line1[x + 1];
+
+                int r = (R8(c0) + R8(c1) + ((R8(c2) + R8(c3)) >> 1)) / 3;
+                int g = (G8(c0) + G8(c1) + ((G8(c2) + G8(c3)) >> 1)) / 3;
+                int b = (B8(c0) + B8(c1) + ((B8(c2) + B8(c3)) >> 1)) / 3;
+
+                line0[x] = (r << 5) | (g << 2) | b;
+            }
+        }
+    }
+}
 
 /*
+void VGA_GFX::blur() {
+    int width  = _vga.ScrWidth();
+    int height = _vga.ScrHeight();
 
+    uint16_t* buf = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+
+    for (int y = 0; y < height - 1; y++) {
+        uint16_t* line0 = buf + y * width;
+        uint16_t* line1 = buf + (y + 1) * width;
+
+        for (int x = 1; x < width - 1; x++) {
+            uint16_t c0 = line0[x];     // текущий пиксель
+            uint16_t c1 = line1[x];     // ниже
+            uint16_t c2 = line1[x - 1]; // ниже слева
+            uint16_t c3 = line1[x + 1]; // ниже справа
+
+            int r = (R(c0) + R(c1) + ((R(c2) + R(c3)) >> 1)) / 3;
+            int g = (G(c0) + G(c1) + ((G(c2) + G(c3)) >> 1)) / 3;
+            int b = (B(c0) + B(c1) + ((B(c2) + B(c3)) >> 1)) / 3;
+
+            line0[x] = (r << 11) | (g << 5) | b;
+        }
+    }
+}
+
+
+
+/*
+void VGA_GFX::blur() {
+    int W = _vga.ScrWidth();
+    int H = _vga.ScrHeight();
+
+    // указатель на текущий буфер
+    uint16_t* scr = PTR_OFFSET_T(_vga._buf16, _vga._backBuff, uint16_t);
+
+    // проходим по строкам, кроме последней
+    for(int y = 0; y < H-1; y++) {
+        uint16_t* line0 = scr + y*W;
+        uint16_t* line1 = scr + (y+1)*W;
+
+        // внутренние пиксели
+        for(int x = 1; x < W-1; x++) {
+            uint16_t c0 = line0[x];
+            uint16_t c1 = line1[x];
+            uint16_t c2 = line1[x-1];
+            uint16_t c3 = line1[x+1];
+
+            // усреднение с весами
+            int r = (R(c0) + R(c1) + ((R(c2) + R(c3)) >> 1)) / 3;
+            int g = (G(c0) + G(c1) + ((G(c2) + G(c3)) >> 1)) / 3;
+            int b = (B(c0) + B(c1) + ((B(c2) + B(c3)) >> 1)) / 3;
+
+            line0[x] = (r << 11) | (g << 5) | b;
+        }
+    }
+}
 
 void VGA_GFX::initGFX(){
     // Выбираем реализацию один раз

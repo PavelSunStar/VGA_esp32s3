@@ -108,6 +108,8 @@ class VGA_esp32s3{
         int vXX()           {return _vXX;};
         int vYY()           {return _vYY;};
 
+        uint32_t Timer()    {return _timer;};
+
         void setPins(uint8_t r0, uint8_t r1, uint8_t r2, uint8_t r3, uint8_t r4, 
                      uint8_t g0, uint8_t g1, uint8_t g2, uint8_t g3, uint8_t g4, uint8_t g5,
                      uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3, uint8_t b4,
@@ -153,6 +155,20 @@ class VGA_esp32s3{
         int _scrWidth2X, _scrWidth4X;
         int _tmpBufSize;
 
+        esp_lcd_panel_handle_t _panel_handle = NULL;
+        static bool IRAM_ATTR on_bounce_empty           (esp_lcd_panel_handle_t panel, void *bounce_buf, int pos_px, int len_bytes, void *user_ctx);
+        static bool IRAM_ATTR on_color_trans_done       (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
+        static bool IRAM_ATTR on_vsync                  (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
+        static bool IRAM_ATTR on_bounce_frame_finish    (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
+        static bool IRAM_ATTR on_frame_buf_complete     (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
+
+	    SemaphoreHandle_t _sem_vsync_end;
+	    SemaphoreHandle_t _sem_gui_ready;
+
+        bool setPanelConfig();
+        void regCallbackSemaphore();  
+
+    private:
         //Mode
         int _bppShift;
         int _width, _height;
@@ -173,17 +189,7 @@ class VGA_esp32s3{
         int _vCX, _vCY;
         int _vXX, _vYY;
 
-        esp_lcd_panel_handle_t _panel_handle = NULL;
-        static bool IRAM_ATTR on_bounce_empty           (esp_lcd_panel_handle_t panel, void *bounce_buf, int pos_px, int len_bytes, void *user_ctx);
-        static bool IRAM_ATTR on_color_trans_done       (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
-        static bool IRAM_ATTR on_vsync                  (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
-        static bool IRAM_ATTR on_bounce_frame_finish    (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
-        static bool IRAM_ATTR on_frame_buf_complete     (esp_lcd_panel_handle_t panel, const esp_lcd_rgb_panel_event_data_t *edata, void *user_ctx);
-
-	    SemaphoreHandle_t _sem_vsync_end;
-	    SemaphoreHandle_t _sem_gui_ready;
-
-        bool setPanelConfig();
-        void regCallbackSemaphore();  
+        uint32_t _timer = 0;
+        float _fps;
 };    
 
