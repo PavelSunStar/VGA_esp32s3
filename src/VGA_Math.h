@@ -1,43 +1,8 @@
 #pragma once
 
-#include <cstdint>  // для uint32_t
-#include <cstddef>  // для size_t
-
-#define LUT_SIZE 360
-
-class VGA_Math {
-public:
-    VGA_Math();
-
-    void LUT(int &x, int &y, int xx, int yy, int len, int angle);
-    int xLUT(int x, int y, int len, int angle);
-    int yLUT(int x, int y, int len, int angle);
-
-    void startFPS();
-    void calcFPS();
-    float getFPS() const;
-
-    // --- Random Numbers ---
-    static uint32_t randomU32();
-    static int randomInt(int min, int max);
-    static float randomFloat();
-    static double randomDouble();
-    static bool randomBool();
-    static float randomRangeFloat(float min, float max);
-
-    // --- Random Bytes ---
-    static void randomBytes(void* buf, size_t len);
-
-    // --- True RNG control ---
-    static void enableTrueRandom();
-    static void disableTrueRandom(); 
-    
-    protected:
-        int16_t _sinLUT[LUT_SIZE];
-        int16_t _cosLUT[LUT_SIZE];
-
-        unsigned long _frameCount = 0;
-        unsigned long _fpsStartTime = 0;
-        float _fps = 0.0f;
-
-};
+static constexpr int   FP_SHIFT     = 16;
+static constexpr int   FP_ONE       = 1 << FP_SHIFT;
+static constexpr int   HALF         = 1 << (FP_SHIFT - 1);
+static constexpr float deg_to_rad   = 0.01745329251994329577f; // π / 180
+static inline    float angle(float deg)         { return (fmodf(deg, 360.0f) * deg_to_rad);}
+static constexpr float percentTo(uint16_t p)    { return p * 0.01f; }
