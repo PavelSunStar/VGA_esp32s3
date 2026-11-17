@@ -1,5 +1,9 @@
 # VGA_esp32s3
 
+![VGA Racer running on ESP32-S3](vga-racer-demo.jpg)
+
+*VGA Racer demo — ESP32-S3, RGB332 live palette, sprites and pseudo-3D scenery; ~58 FPS in the pictured run.*
+
 **VGA graphics library for ESP32-S3 (Arduino IDE)** — RGB565 / 8-bit graphics, PSRAM framebuffers, indexed color palettes, sprites, text, effects, and VGA output using the ESP-IDF RGB LCD peripheral.
 
 **Автор / Author:** Pavel SunStar  
