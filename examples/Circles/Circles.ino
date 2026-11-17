@@ -1,38 +1,70 @@
-//https://github.com/bitluni/ESP32Lib/blob/master/examples/VGADemo14Bit/VGADemo14Bit.ino
-#include <VGA_esp32s3.h>
-#include <VGA_GFX.h>
-#include <VGA_Math.h>
 
-VGA_esp32s3 vga;
-VGA_GFX gfx(vga);
-VGA_Math math;
+#include <Arduino.h>
+#include <VGA_esp32.h>
+#include <math.h>
 
-// параметры шариков
+VGA_esp32 vga;
+
+bool ready = false;
+
+// Параметры шариков
 int scrX3, scrY3;
-uint16_t colors[] = {0b1111100000000000, 0b0000011111100000, 0b0000000000011111};
-//uint8_t colors[] = {0b11100000, 0b00011100, 0b00000011};
-float factors[][2] = {{1, 1.1f}, {0.9f, 1.02f}, {1.1f, 0.8f}};
+
+// RGB565: красный, зелёный, синий
+uint16_t colors[] = {
+    0xF800,
+    0x07E0,
+    0x001F
+};
+
+float factors[][2] = {
+    {1.0f, 1.1f},
+    {0.9f, 1.02f},
+    {1.1f, 0.8f}
+};
+
+uint32_t lastFPS = 0;
 
 void setup() {
-    vga.init(VGA_esp32s3::MODE640x480x16, 1, false, true);
-    scrX3 = vga.ScrWidth() / 3;
-    scrY3 = vga.ScrHeight() / 3;
-    math.startFPS();
+    Serial.begin(115200);
+
+    // 320x240 -> VGA 640x480
+    // 16-bit RGB565, без палитры, двойной буфер
+    ready = vga.init(
+        Mode320x240,
+        BPP_16,
+        false,
+        false
+    );
+
+    if (!ready) {
+        Serial.println("VGA INIT ERROR!");
+        return;
+    }
+
+    scrX3 = vga.Width() / 3;
+    scrY3 = vga.Height() / 3;
+
+    // Очистка обоих буферов
+    vga.cls(0);
+    vga.swap();
+    vga.cls(0);
+
+    Serial.println("VGA Circles started!");
 }
 
 void loop() {
-  math.calcFPS();
+    if (!ready) return;
 
-  float p = millis() * 0.002f;
+    float p = millis() * 0.002f;
 
-  // рисуем шарики
-  for(int i = 0; i < 3; i++) {
-    int x = vga.ScrCX() + sinf(p * factors[i][0]) * scrX3;
-    int y = vga.ScrCY() + cosf(p * factors[i][1]) * scrY3;
+    // Рисуем шарики
+    for (int i = 0; i < 3; i++) {
+        int x = vga.CX() + sinf(p * factors[i][0]) * scrX3;
+        int y = vga.CY() + cosf(p * factors[i][1]) * scrY3;
+        vga.circle(x, y, 25, colors[i]);
+    }
 
-    gfx.circle(x, y, 25, colors[i]);
-  }
-
-  gfx.blur();
-  Serial.println(math.getFPS());
+    // Размытие для следов
+    vga.blur();
 }
