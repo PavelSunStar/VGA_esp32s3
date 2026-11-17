@@ -288,19 +288,11 @@ bool VGA_esp32::initPanel(){
 }
 
 bool VGA_esp32::regSemaphore(){
-    if (_s.dBuff){
-        _sem_vsync_end = xSemaphoreCreateBinary();
-        _sem_gui_ready = xSemaphoreCreateBinary();
+    _sem_vsync_end = xSemaphoreCreateBinary();
+    _sem_gui_ready = xSemaphoreCreateBinary();
 
-        if (!_sem_vsync_end || !_sem_gui_ready){
-            Serial.println("Error: Semaphores init fail.");
-            return (_semInited = false);
-        }
-    } else {
-        _sem_vsync_end = nullptr;
-        _sem_gui_ready = nullptr;
-
-        Serial.println("Double buffer not selected.");
+    if (!_sem_vsync_end || !_sem_gui_ready){
+        Serial.println("Error: Semaphores init fail.");
         return (_semInited = false);
     }
 
