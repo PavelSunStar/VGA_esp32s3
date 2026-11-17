@@ -1,112 +1,355 @@
-//https://github.com/MinhasKamal/CreepyCodeCollection/blob/master/animated_3d_doughnut.c
-#include "VGA_esp32s3.h"
-#include "VGA_GFX.h"
 
-VGA_esp32s3 vga;
-VGA_GFX gfx(vga);
+#include <Arduino.h>
+#include <VGA_esp32.h>
+#include <math.h>
+#include <string.h>
+#include <stdint.h>
 
-// Размер "символьной сетки" (как консоль 80×40)
-const int cols = 80;
-const int rows = 40;
+VGA_esp32 vga;
+bool ready = false;
 
-float zbuf[cols * rows];
-uint8_t cbuf[cols * rows];
+// ==========================================
+// НАСТРОЙКИ
+// ==========================================
 
-// Таблицы синусов/косинусов
-#define STEPS_I 314   // 6.28 / 0.02 ≈ 314 шагов
-#define STEPS_J 90    // 6.28 / 0.07 ≈ 90 шагов
+constexpr int COLS = 80;
+constexpr int ROWS = 40;
+
+// Меняй эти значения для качества/скорости.
+// 1 = максимальная детализация
+// 2 = быстрый режим
+// 3 = очень быстрый режим
+constexpr int STEP_I = 1;
+constexpr int STEP_J = 1;
+
+constexpr int STEPS_I = 314;
+constexpr int STEPS_J = 90;
+
+float zbuf[COLS * ROWS];
+uint8_t cbuf[COLS * ROWS];
+
 float sin_i[STEPS_I], cos_i[STEPS_I];
 float sin_j[STEPS_J], cos_j[STEPS_J];
 
 int scrW, scrH;
 int cellW, cellH;
+int offsetX, offsetY;
 
-float A = 0, B = 0;
+float A = 0.0f;
+float B = 0.0f;
+
+// ==========================================
+// FPS И ПРОФИЛИРОВАНИЕ
+// ==========================================
+
+uint32_t fpsTimer = 0;
+uint32_t fpsFrames = 0;
+
+uint32_t drawFPS = 0;
+
+uint64_t renderTimeSum = 0;
+uint64_t swapTimeSum = 0;
+
+// ==========================================
+// ТАБЛИЦЫ SIN / COS
+// ==========================================
 
 void initTables() {
-  for (int k = 0; k < STEPS_I; k++) {
-    float angle = k * 0.02f;
-    sin_i[k] = sin(angle);
-    cos_i[k] = cos(angle);
-  }
-  for (int k = 0; k < STEPS_J; k++) {
-    float angle = k * 0.07f;
-    sin_j[k] = sin(angle);
-    cos_j[k] = cos(angle);
-  }
+
+    for (int i = 0; i < STEPS_I; i++) {
+        float a = i * 0.02f;
+        sin_i[i] = sinf(a);
+        cos_i[i] = cosf(a);
+    }
+
+    for (int j = 0; j < STEPS_J; j++) {
+        float a = j * 0.07f;
+        sin_j[j] = sinf(a);
+        cos_j[j] = cosf(a);
+    }
 }
 
-void setup() {
-  vga.init(VGA_esp32s3::MODE512x384x16, 2, true, true);
+// ==========================================
+// БЫСТРАЯ ОТРИСОВКА RGB565
+// ==========================================
 
-  scrW = vga.ScrWidth();   // 128
-  scrH = vga.ScrHeight();  // 96
+void drawTorus() {
 
-  cellW = scrW / cols; // ширина ячейки ≈ 1–2 пикселя
-  cellH = scrH / rows; // высота ячейки ≈ 2 пикселя
+    // Buf() указывает на буфер рисования.
+    uint16_t* fb = (uint16_t*)vga.Buf();
 
-  initTables();
+    if (!fb) return;
+
+    // Быстрая очистка всего кадра.
+    memset(
+        fb,
+        0,
+        (size_t)scrW * scrH * sizeof(uint16_t)
+    );
+
+    // Рисуем только видимые ячейки.
+    for (int y = 0; y < ROWS; y++) {
+
+        int py = offsetY + y * cellH;
+
+        for (int x = 0; x < COLS; x++) {
+
+            uint8_t brightness =
+                cbuf[y * COLS + x];
+
+            if (!brightness) continue;
+
+            // RGB565 RED
+            uint16_t color =
+                (uint16_t)brightness << 11;
+
+            int px = offsetX + x * cellW;
+
+            // Четыре одинаковых RGB565 пикселя
+            // в одном 64-битном значении.
+            uint64_t packed =
+                (uint64_t)color |
+                ((uint64_t)color << 16) |
+                ((uint64_t)color << 32) |
+                ((uint64_t)color << 48);
+
+            // Для 320x240:
+            // одна ячейка = 4x6 пикселей.
+            if (cellW == 4) {
+
+                for (int yy = 0; yy < cellH; yy++) {
+
+                    uint16_t* dst =
+                        fb + (py + yy) * scrW + px;
+
+                    memcpy(dst, &packed, 8);
+                }
+
+            } else {
+
+                // Универсальный вариант
+                for (int yy = 0; yy < cellH; yy++) {
+
+                    uint16_t* dst =
+                        fb + (py + yy) * scrW + px;
+
+                    for (int xx = 0; xx < cellW; xx++) {
+                        dst[xx] = color;
+                    }
+                }
+            }
+        }
+    }
 }
 
-void loop() {
-  // очистка буферов
+// ==========================================
+// БЫСТРЫЙ РАСЧЁТ 3D TORUS
+// ==========================================
+
+void renderTorus() {
+
     memset(zbuf, 0, sizeof(zbuf));
     memset(cbuf, 0, sizeof(cbuf));
 
-  // рендер тора
-  for (int jj = 0; jj < STEPS_J; jj++) {
-    float d = cos_j[jj];
-    float f = sin_j[jj];
+    // Считаем только один раз за кадр
+    const float sinA = sinf(A);
+    const float cosA = cosf(A);
+    const float sinB = sinf(B);
+    const float cosB = cosf(B);
 
-    for (int ii = 0; ii < STEPS_I; ii++) {
-      float c = sin_i[ii];
-      float l = cos_i[ii];
+    const float halfW = COLS * 0.5f;
+    const float halfH = ROWS * 0.5f;
 
-      float e = sin(A), g = cos(A);
-      float m = cos(B), n = sin(B);
+    // ======================================
+    // ВНЕШНИЙ ЦИКЛ
+    // ======================================
 
-      float h = d + 2;
-      float D = 1.0f / (c * h * e + f * g + 5);
-      float t = c * h * g - f * e;
+    for (int jj = 0; jj < STEPS_J; jj += STEP_J) {
 
-      int x = (int)(cols / 2 + (cols / 2) * D * (l * h * m - t * n));
-      int y = (int)(rows / 2 + (rows / 2) * D * (l * h * n + t * m));
+        const float d = cos_j[jj];
+        const float f = sin_j[jj];
 
-      if (x < 0 || x >= cols || y < 0 || y >= rows) continue;
+        const float h = d + 2.0f;
 
-      int o = x + cols * y;
+        // Частичные вычисления для всей строки
+        const float fCosA = f * cosA;
+        const float fSinA = f * sinA;
+        const float dCosA = d * cosA;
+        const float dSinA = d * sinA;
 
-      int N = (int)(8 * ((f * e - c * d * g) * m
-                        - c * d * e - f * g - l * d * n));
+        // ==================================
+        // ВНУТРЕННИЙ ЦИКЛ
+        // ==================================
 
-      if (N < 0) N = 0;
+        for (int ii = 0; ii < STEPS_I; ii += STEP_I) {
 
-      if (D > zbuf[o]) {
-        zbuf[o] = D;
-        cbuf[o] = N;
-      }
-    }
-  }
+            const float c = sin_i[ii];
+            const float l = cos_i[ii];
 
-  // выводим на VGA
-  gfx.cls(0);
-  for (int y = 0; y < rows; y++) {
-    for (int x = 0; x < cols; x++) {
-      int val = cbuf[x + y * cols] << 11;
-      if (val > 0) {
-        // заливаем ячейку цветом val
-        for (int yy = 0; yy < cellH; yy++) {
-          for (int xx = 0; xx < cellW; xx++) {
-            gfx.putPixel(x * cellW + xx + 24, y * cellH + yy + 10, val);
-          }
+            const float ch = c * h;
+
+            const float D =
+                1.0f / (ch * sinA + fCosA + 5.0f);
+
+            const float t =
+                ch * cosA - fSinA;
+
+            const float lh = l * h;
+
+            const float X =
+                lh * cosB - t * sinB;
+
+            const float Y =
+                lh * sinB + t * cosB;
+
+            const int x =
+                (int)(halfW + halfW * D * X);
+
+            const int y =
+                (int)(halfH + halfH * D * Y);
+
+            if ((unsigned)x >= COLS ||
+                (unsigned)y >= ROWS)
+                continue;
+
+            const int o = y * COLS + x;
+
+            // Невидимую точку не освещаем
+            if (D <= zbuf[o]) continue;
+
+            zbuf[o] = D;
+
+            // Освещение поверхности
+            const float light =
+                (fSinA - c * dCosA) * cosB
+                - c * dSinA
+                - fCosA
+                - l * d * sinB;
+
+            int N = (int)(8.0f * light);
+
+            if (N < 0) N = 0;
+            if (N > 31) N = 31;
+
+            cbuf[o] = (uint8_t)N;
         }
-      }
     }
-  }
+}
 
-  vga.swap();
+// ==========================================
+// SETUP
+// ==========================================
 
-  // вращение
-  A += 0.04;
-  B += 0.02;
+void setup() {
+
+    Serial.begin(115200);
+
+    // RGB565
+    // 320x240 -> VGA 640x480
+    // ДВА FRAMEBUFFER
+    ready = vga.init(
+        Mode320x240,
+        BPP_16,
+        false,
+        true
+    );
+
+    if (!ready) {
+        Serial.println("VGA INIT ERROR!");
+        return;
+    }
+
+    scrW = vga.Width();
+    scrH = vga.Height();
+
+    cellW = scrW / COLS;
+    cellH = scrH / ROWS;
+
+    offsetX = (scrW - cellW * COLS) / 2;
+    offsetY = (scrH - cellH * ROWS) / 2;
+
+    initTables();
+
+    // Очистим оба буфера
+    vga.cls(0);
+    vga.swap();
+    vga.cls(0);
+
+    vga.setTextSize(1);
+
+    fpsTimer = millis();
+
+    Serial.println("FAST 3D DOUGHNUT STARTED");
+}
+
+// ==========================================
+// LOOP
+// ==========================================
+
+void loop() {
+
+    if (!ready) return;
+
+    uint32_t start = micros();
+
+    // 1. Вычисляем 3D
+    renderTorus();
+
+    // 2. Быстро выводим в RGB565
+    drawTorus();
+
+    // 3. FPS на экране
+    vga.putPrintf(
+        scrW - 75,
+        5,
+        0xFFFF,
+        "FPS:%lu",
+        (unsigned long)drawFPS
+    );
+
+    uint32_t renderUs = micros() - start;
+
+    // 4. Смена буфера
+    uint32_t beforeSwap = micros();
+    vga.swap();
+    uint32_t swapUs = micros() - beforeSwap;
+
+    // 5. Поворот
+    A += 0.04f;
+    B += 0.02f;
+
+    if (A >= 6.2831853f) A -= 6.2831853f;
+    if (B >= 6.2831853f) B -= 6.2831853f;
+
+    // 6. Измеряем производительность
+    fpsFrames++;
+    renderTimeSum += renderUs;
+    swapTimeSum += swapUs;
+
+    uint32_t now = millis();
+    uint32_t elapsed = now - fpsTimer;
+
+    if (elapsed >= 1000) {
+
+        drawFPS =
+            fpsFrames * 1000UL / elapsed;
+
+        float avgRender =
+            renderTimeSum / (float)fpsFrames / 1000.0f;
+
+        float avgSwap =
+            swapTimeSum / (float)fpsFrames / 1000.0f;
+
+        Serial.printf(
+            "FPS:%lu | RENDER:%.2f ms | SWAP:%.2f ms\n",
+            (unsigned long)drawFPS,
+            avgRender,
+            avgSwap
+        );
+
+        fpsFrames = 0;
+        renderTimeSum = 0;
+        swapTimeSum = 0;
+        fpsTimer = now;
+    }
 }
