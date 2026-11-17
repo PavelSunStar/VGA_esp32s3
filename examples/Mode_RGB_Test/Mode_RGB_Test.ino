@@ -1,44 +1,37 @@
-#include <VGA_esp32s3.h>
-#include <VGA_GFX.h>
 
-VGA_esp32s3 vga;   
-VGA_GFX gfx(vga); 
+#include <Arduino.h>
+#include <VGA_esp32.h>
 
-int scrX, scrY;
+VGA_esp32 vga;
 
-void draw() {
-    gfx.cls(0xFFFF);
-    int d = scrY / 3;
-    
-    for (int x = 0; x < scrX - 1; x++) {
-        // растягиваем 0..255 на ширину экрана
-        uint8_t colIndex = x * 256 / scrX;
+// ==========================================
+// SETUP
+// ==========================================
 
-        // верхняя полоса: красный от 0 до 255, зелёный и синий 0
-        gfx.vLine(x + 1, 1, d, gfx.getCol(colIndex, 0, 0));
+void setup() {
 
-        // средняя полоса: зелёный от 0 до 255, красный и синий 0
-        gfx.vLine(x + 1, d, d * 2, gfx.getCol(0, colIndex, 0));
+    Serial.begin(115200);
 
-        // нижняя полоса: синий от 0 до 255, красный и зелёный 0
-        gfx.vLine(x + 1, d * 2, scrY - 1, gfx.getCol(0, 0, colIndex));
-    }
-}
+    // 640x480
+    // RGB565
+    // Палитра OFF
+    // Один framebuffer
+    bool ready = vga.init(
+        Mode640x480,
+        BPP_16,
+        false,
+        false
+    );
 
-void setup() { 
-  //          by default
-  //          r  r  r  r  r   g   g   g   g  g  g   b   b   b   b   b   h  v
-  //          0  1  2  3  4   5   6   7   8  9  10  11  12  13  14  15  16 17
-  vga.setPins(4, 5, 6, 7, 15, 16, 17, 18, 8, 9, 14, 10, 11, 12, 13, 21, 1, 2);
+    vga.testRGB();
 
-  vga.init(VGA_esp32s3::MODE640x480x16, 0, false, true);
-  scrX = vga.ScrWidth() - 1;
-  scrY = vga.ScrHeight() - 1; 
-
-  draw();
+    Serial.printf(
+        "RGB TEST OK | %dx%d | 16-bit\n",
+        vga.Width(),
+        vga.Height()
+    );
 }
 
 void loop() {
-
+    // Статическое изображение
 }
-
